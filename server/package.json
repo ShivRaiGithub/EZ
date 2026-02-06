@@ -1,0 +1,34 @@
+{
+  "name": "cross-chain-relayer-server",
+  "version": "1.0.0",
+  "description": "Cross-chain payment relayer server for USDC transfers",
+  "main": "dist/server.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "dev": "tsx watch server.ts",
+    "test": "tsx test-server.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "cross-chain",
+    "usdc",
+    "relayer",
+    "cctp"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.9.0"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/cors": "^2.8.17",
+    "@types/node": "^20.10.5",
+    "typescript": "^5.3.3",
+    "tsx": "^4.7.0"
+  }
+}
