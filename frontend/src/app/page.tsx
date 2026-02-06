@@ -5,6 +5,7 @@ import { PaymentForm } from "@/components/PaymentForm";
 import { ENSLookup } from "@/components/ENSLookup";
 import { PreferencesHelper } from "@/components/PreferencesHelper";
 import { CHAIN_LOGOS } from "@/components/ChainLogos";
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import {
   Zap,
   ArrowRight,
@@ -12,7 +13,6 @@ import {
   Sparkles,
   Send,
   Search,
-  Wallet,
   Shield,
   Clock,
   DollarSign,
@@ -20,11 +20,8 @@ import {
   Lock,
   Timer
 } from 'lucide-react';
-import { useState } from 'react';
 
 export default function Home() {
-  const [isConnected, setIsConnected] = useState(false);
-
   return (
     <div className="min-h-screen">
       {/* Header */}
@@ -45,13 +42,7 @@ export default function Home() {
                 Launch App
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Link>
-              <button
-                onClick={() => setIsConnected(!isConnected)}
-                className="btn-primary px-4 py-2 text-sm"
-              >
-                <Wallet className="w-4 h-4 mr-2" />
-                {isConnected ? 'Connected' : 'Connect Wallet'}
-              </button>
+              <ConnectButton showBalance={false} />
             </div>
           </div>
         </div>

@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
+import { Web3Provider } from "@/components/Web3Provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "EZ - Make Easy Payments",
-  description: "Send crypto payments that automatically route to your recipient's preferred chain and token. Powered by ENS and LI.FI.",
-  keywords: ["crypto", "payments", "cross-chain", "ENS", "LI.FI", "ethereum", "web3"],
+  description: "Send crypto payments that automatically route to your recipient's preferred chain and token. Powered by Arc + ENS.",
+  keywords: ["crypto", "payments", "cross-chain", "ENS", "Arc", "CCTP", "ethereum", "web3"],
   authors: [{ name: "EZ Payments" }],
   openGraph: {
     title: "EZ - Make Easy Payments",
@@ -24,7 +25,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${inter.className} gradient-bg gradient-mesh`} style={{ minHeight: '100vh' }}>
-        {children}
+        <Web3Provider>
+          {children}
+        </Web3Provider>
       </body>
     </html>
   );
