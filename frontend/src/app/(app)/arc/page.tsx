@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { BrowserProvider, ethers } from "ethers";
 import { Zap, CircleDollarSign } from 'lucide-react';
-import api from '@/lib/api';
+import {api} from '@/lib/api';
 
 // Extend Window interface for MetaMask
 declare global {
@@ -36,7 +36,7 @@ const CHAINS = {
     chainId: 84532,
     rpc: "https://sepolia.base.org",
     domain: 6,
-    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    usdc: "0x3600000000000000000000000000000000000000",
     tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
     explorer: "https://sepolia.basescan.org",
@@ -44,12 +44,12 @@ const CHAINS = {
   arc: {
     name: "Arc Testnet",
     chainId: 5042002,
-    rpc: "https://testnet.rpc.arc.foundation",
+    rpc: "https://rpc.testnet.arc.network",
     domain: 26,
-    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    usdc: "0x3600000000000000000000000000000000000000",
     tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://testnet.explorer.arc.foundation",
+    explorer: "https://testnet.arcscan.app",
   },
 } as const;
 
@@ -193,8 +193,7 @@ export default function ArcPage() {
         await fetchBalance(address, web3Signer);
 
         addLog("Connected", "success");
-        } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown error";
+        } catch {
         addLog("Connection Failed", "error");
         }
     };
@@ -254,7 +253,7 @@ export default function ArcPage() {
             addLog("Waiting...");
             await new Promise((resolve) => setTimeout(resolve, 5000));
             attempts++;
-        } catch (error) {
+        } catch {
             addLog("Error Fetching", "error");
             await new Promise((resolve) => setTimeout(resolve, 5000));
             attempts++;
@@ -511,7 +510,7 @@ export default function ArcPage() {
                 {!userAddress ? (
                     <button
                         onClick={connectWallet}
-                        className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
+                        className="w-full bg-linear-to-r from-purple-600 to-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
                     >
                         Connect MetaMask
                     </button>
@@ -616,7 +615,7 @@ export default function ArcPage() {
                         className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
                             isProcessing
                                 ? "bg-gray-400 cursor-not-allowed text-white"
-                                : "bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:-translate-y-1"
+                                : "bg-linear-to-r from-purple-600 to-indigo-600 text-white hover:shadow-lg hover:-translate-y-1"
                         }`}
                     >
                         {isProcessing ? "Processing..." : "Send Payment"}

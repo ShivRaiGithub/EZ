@@ -2,6 +2,10 @@ import express, { Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { ethers, JsonRpcProvider, Wallet, Contract } from 'ethers';
+import { connectDB } from './config/database';
+import AutoPayment from './models/AutoPayment';
+import PaymentHistory from './models/PaymentHistory';
+import { startScheduler } from './services/scheduler';
 
 dotenv.config();
 
@@ -92,9 +96,9 @@ const CHAINS: ChainConfigs = {
   },
   arc: {
     name: "Arc Testnet",
-    rpc: "https://testnet.rpc.arc.foundation",
+    rpc: "https://rpc.testnet.arc.network",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://testnet.explorer.arc.foundation",
+    explorer: "https://testnet.arcscan.app",
   },
 };
 
@@ -272,6 +276,178 @@ app.get('/api/relayer-info', async (req: Request, res: Response<RelayerInfoRespo
   }
 });
 
+// Calculate next payment date based on frequency
+function calculateNextPayment(frequency: string, from: Date = new Date()): Date {
+  const next = new Date(from);
+  
+  switch (frequency) {
+    case 'minute':
+      next.setMinutes(next.getMinutes() + 1);
+      break;
+    case 'daily':
+      next.setDate(next.getDate() + 1);
+      break;
+    case 'weekly':
+      next.setDate(next.getDate() + 7);
+      break;
+    case 'monthly':
+      next.setMonth(next.getMonth() + 1);
+      break;
+    case 'yearly':
+      next.setFullYear(next.getFullYear() + 1);
+      break;
+  }
+  
+  return next;
+}
+
+// AutoPayment CRUD endpoints
+
+// Create autopayment
+app.post('/api/autopayments', async (req: Request, res: Response) => {
+  try {
+    const { userId, walletAddress, recipient, amount, frequency, destinationChain } = req.body;
+
+    if (!userId || !walletAddress || !recipient || !amount || !frequency || !destinationChain) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['userId', 'walletAddress', 'recipient', 'amount', 'frequency', 'destinationChain']
+      });
+    }
+
+    if (!ethers.isAddress(recipient)) {
+      return res.status(400).json({ error: 'Invalid recipient address' });
+    }
+
+    if (!ethers.isAddress(walletAddress)) {
+      return res.status(400).json({ error: 'Invalid wallet address' });
+    }
+
+    const nextPayment = calculateNextPayment(frequency);
+
+    const autoPayment = new AutoPayment({
+      userId,
+      walletAddress,
+      recipient,
+      amount,
+      frequency,
+      destinationChain,
+      status: 'active',
+      nextPayment,
+    });
+
+    await autoPayment.save();
+
+    res.json({
+      success: true,
+      autoPayment,
+    });
+  } catch (error) {
+    console.error('Error creating autopayment:', error);
+    res.status(500).json({ 
+      error: 'Failed to create autopayment',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get all autopayments for a user
+app.get('/api/autopayments/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const autoPayments = await AutoPayment.find({ userId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      autoPayments,
+    });
+  } catch (error) {
+    console.error('Error fetching autopayments:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch autopayments',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Update autopayment status (pause/resume)
+app.patch('/api/autopayments/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    if (!['active', 'paused'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const autoPayment = await AutoPayment.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
+
+    if (!autoPayment) {
+      return res.status(404).json({ error: 'Autopayment not found' });
+    }
+
+    res.json({
+      success: true,
+      autoPayment,
+    });
+  } catch (error) {
+    console.error('Error updating autopayment:', error);
+    res.status(500).json({ 
+      error: 'Failed to update autopayment',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Delete autopayment
+app.delete('/api/autopayments/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const autoPayment = await AutoPayment.findByIdAndDelete(id);
+
+    if (!autoPayment) {
+      return res.status(404).json({ error: 'Autopayment not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Autopayment deleted',
+    });
+  } catch (error) {
+    console.error('Error deleting autopayment:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete autopayment',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get payment history for a user
+app.get('/api/payment-history/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const history = await PaymentHistory.find({ userId }).sort({ createdAt: -1 }).limit(50);
+
+    res.json({
+      success: true,
+      history,
+    });
+  } catch (error) {
+    console.error('Error fetching payment history:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch payment history',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
 // 404 handler
 app.use((req: Request, res: Response) => {
   res.status(404).json({ error: 'Endpoint not found' });
@@ -287,16 +463,33 @@ app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
 });
 
 // Start server
-app.listen(PORT, () => {
-  console.log('='.repeat(50));
-  console.log('🚀 Cross-Chain Payment Relayer Server');
-  console.log('='.repeat(50));
-  console.log(`Server running on port ${PORT}`);
-  console.log(`Health check: http://localhost:${PORT}/health`);
-  console.log(`Relay endpoint: http://localhost:${PORT}/api/relay`);
-  console.log(`Relayer configured: ${!!process.env.RELAYER_PRIVATE_KEY}`);
-  console.log('='.repeat(50));
-});
+const startServer = async () => {
+  try {
+    // Connect to MongoDB
+    await connectDB();
+    
+    // Start the autopayment scheduler
+    startScheduler();
+    
+    app.listen(PORT, () => {
+      console.log('='.repeat(50));
+      console.log('Cross-Chain Payment Relayer Server');
+      console.log('='.repeat(50));
+      console.log(`Server running on port ${PORT}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
+      console.log(`Relay endpoint: http://localhost:${PORT}/api/relay`);
+      console.log(`Autopayments endpoint: http://localhost:${PORT}/api/autopayments`);
+      console.log(`Relayer configured: ${!!process.env.RELAYER_PRIVATE_KEY}`);
+      console.log(`MongoDB configured: ${!!process.env.MONGO_URI}`);
+      console.log('='.repeat(50));
+    });
+  } catch (error) {
+    console.error('Failed to start server:', error);
+    process.exit(1);
+  }
+};
+
+startServer();
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
