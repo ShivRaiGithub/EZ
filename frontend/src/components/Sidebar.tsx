@@ -9,13 +9,17 @@ import {
   Search,
   User,
   Home,
-  FileText
+  FileText,
+  Send,
+  Users
 } from 'lucide-react';
 
 const navItems = [
   { href: '/cross-chain', label: 'Cross-Chain', icon: Layers },
   { href: '/arc', label: 'Arc Testnet', icon: Zap },
   { href: '/autopay', label: 'Auto Pay', icon: RefreshCw },
+  { href: '/requests', label: 'Requests', icon: Send },
+  { href: '/contacts', label: 'Contacts', icon: Users },
   { href: '/ens', label: 'ENS Lookup', icon: Search },
   { href: '/profile', label: 'Profile', icon: User },
 ];
@@ -28,7 +32,7 @@ export function Sidebar() {
       {/* Logo */}
       <div className="px-4 py-5 border-b border-gray-100">
         <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <div className="w-8 h-8 rounded-lg bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
             <Zap className="w-4 h-4 text-white" />
           </div>
           <span className="text-lg font-bold text-gray-900">EZ</span>

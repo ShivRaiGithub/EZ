@@ -64,7 +64,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Wallet Card */}
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
+            <div className="bg-linear-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-2">
                         <Wallet className="w-5 h-5" />

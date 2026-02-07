@@ -32,7 +32,7 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+              <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
                 <Zap className="w-5 h-5 text-white" />
               </div>
               <div>
@@ -95,7 +95,6 @@ export default function Home() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <p className="section-label mb-4">//how_it_works</p>
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
               Seamless payments made simple
             </h3>
@@ -148,7 +147,6 @@ export default function Home() {
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <p className="section-label mb-4">//arc_features</p>
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
               The Economic OS for the internet
             </h3>
@@ -183,7 +181,6 @@ export default function Home() {
       {/* Supported Chains */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
-          <p className="section-label mb-4">//multichain</p>
           <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12">
             Connect across the ecosystem
           </h3>
@@ -221,7 +218,6 @@ export default function Home() {
       <section id="payment" className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-12">
-            <p className="section-label mb-4">//send_payment</p>
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
               Ready to pay?
             </h3>
@@ -333,7 +329,7 @@ export default function Home() {
       <footer className="border-t border-gray-200 py-12 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
               <Zap className="w-4 h-4 text-white" />
             </div>
             <span className="text-lg font-bold logo-gradient">EZ</span>

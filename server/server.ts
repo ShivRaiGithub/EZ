@@ -5,6 +5,9 @@ import { ethers, JsonRpcProvider, Wallet, Contract } from 'ethers';
 import { connectDB } from './config/database';
 import AutoPayment from './models/AutoPayment';
 import PaymentHistory from './models/PaymentHistory';
+import SavedAddress from './models/SavedAddress';
+import PaymentRequest from './models/PaymentRequest';
+import Friend from './models/Friend';
 import { startScheduler } from './services/scheduler';
 
 dotenv.config();
@@ -443,6 +446,388 @@ app.get('/api/payment-history/:userId', async (req: Request, res: Response) => {
     console.error('Error fetching payment history:', error);
     res.status(500).json({ 
       error: 'Failed to fetch payment history',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// ========== SAVED ADDRESSES ENDPOINTS ==========
+
+// Create saved address
+app.post('/api/saved-addresses', async (req: Request, res: Response) => {
+  try {
+    const { userId, address, name } = req.body;
+
+    if (!userId || !address || !name) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['userId', 'address', 'name']
+      });
+    }
+
+    if (!ethers.isAddress(address)) {
+      return res.status(400).json({ error: 'Invalid address' });
+    }
+
+    const savedAddress = new SavedAddress({
+      userId,
+      address,
+      name,
+    });
+
+    await savedAddress.save();
+
+    res.json({
+      success: true,
+      savedAddress,
+    });
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Address already saved' });
+    }
+    console.error('Error creating saved address:', error);
+    res.status(500).json({ 
+      error: 'Failed to create saved address',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get all saved addresses for a user
+app.get('/api/saved-addresses/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const savedAddresses = await SavedAddress.find({ userId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      savedAddresses,
+    });
+  } catch (error) {
+    console.error('Error fetching saved addresses:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch saved addresses',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Update saved address
+app.patch('/api/saved-addresses/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name) {
+      return res.status(400).json({ error: 'Name is required' });
+    }
+
+    const savedAddress = await SavedAddress.findByIdAndUpdate(
+      id,
+      { name },
+      { new: true }
+    );
+
+    if (!savedAddress) {
+      return res.status(404).json({ error: 'Saved address not found' });
+    }
+
+    res.json({
+      success: true,
+      savedAddress,
+    });
+  } catch (error) {
+    console.error('Error updating saved address:', error);
+    res.status(500).json({ 
+      error: 'Failed to update saved address',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Delete saved address
+app.delete('/api/saved-addresses/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const savedAddress = await SavedAddress.findByIdAndDelete(id);
+
+    if (!savedAddress) {
+      return res.status(404).json({ error: 'Saved address not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Saved address deleted',
+    });
+  } catch (error) {
+    console.error('Error deleting saved address:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete saved address',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// ========== PAYMENT REQUESTS ENDPOINTS ==========
+
+// Create payment request
+app.post('/api/payment-requests', async (req: Request, res: Response) => {
+  try {
+    const { from, to, amount, message } = req.body;
+
+    if (!from || !to || !amount) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['from', 'to', 'amount']
+      });
+    }
+
+    if (!ethers.isAddress(to)) {
+      return res.status(400).json({ error: 'Invalid recipient address' });
+    }
+
+    const paymentRequest = new PaymentRequest({
+      from,
+      to,
+      amount,
+      message: message || '',
+      status: 'pending',
+    });
+
+    await paymentRequest.save();
+
+    res.json({
+      success: true,
+      paymentRequest,
+    });
+  } catch (error) {
+    console.error('Error creating payment request:', error);
+    res.status(500).json({ 
+      error: 'Failed to create payment request',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get payment requests sent by user (requested tab)
+app.get('/api/payment-requests/sent/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const requests = await PaymentRequest.find({ from: userId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      requests,
+    });
+  } catch (error) {
+    console.error('Error fetching sent payment requests:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch payment requests',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get payment requests received by user (requests tab)
+app.get('/api/payment-requests/received/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const requests = await PaymentRequest.find({ to: userId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      requests,
+    });
+  } catch (error) {
+    console.error('Error fetching received payment requests:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch payment requests',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Update payment request status
+app.patch('/api/payment-requests/:id/status', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { status, txHash } = req.body;
+
+    if (!['pending', 'paid', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    const updateData: any = { status };
+    if (txHash) {
+      updateData.txHash = txHash;
+    }
+
+    const paymentRequest = await PaymentRequest.findByIdAndUpdate(
+      id,
+      updateData,
+      { new: true }
+    );
+
+    if (!paymentRequest) {
+      return res.status(404).json({ error: 'Payment request not found' });
+    }
+
+    res.json({
+      success: true,
+      paymentRequest,
+    });
+  } catch (error) {
+    console.error('Error updating payment request:', error);
+    res.status(500).json({ 
+      error: 'Failed to update payment request',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Delete payment request
+app.delete('/api/payment-requests/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const paymentRequest = await PaymentRequest.findByIdAndDelete(id);
+
+    if (!paymentRequest) {
+      return res.status(404).json({ error: 'Payment request not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment request deleted',
+    });
+  } catch (error) {
+    console.error('Error deleting payment request:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete payment request',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// ========== FRIENDS ENDPOINTS ==========
+
+// Add friend
+app.post('/api/friends', async (req: Request, res: Response) => {
+  try {
+    const { userId, friendAddress, friendName } = req.body;
+
+    if (!userId || !friendAddress || !friendName) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['userId', 'friendAddress', 'friendName']
+      });
+    }
+
+    if (!ethers.isAddress(friendAddress)) {
+      return res.status(400).json({ error: 'Invalid friend address' });
+    }
+
+    const friend = new Friend({
+      userId,
+      friendAddress,
+      friendName,
+      status: 'accepted',
+    });
+
+    await friend.save();
+
+    res.json({
+      success: true,
+      friend,
+    });
+  } catch (error: any) {
+    if (error.code === 11000) {
+      return res.status(400).json({ error: 'Friend already added' });
+    }
+    console.error('Error adding friend:', error);
+    res.status(500).json({ 
+      error: 'Failed to add friend',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Get all friends for a user
+app.get('/api/friends/:userId', async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const friends = await Friend.find({ userId }).sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      friends,
+    });
+  } catch (error) {
+    console.error('Error fetching friends:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch friends',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Update friend name
+app.patch('/api/friends/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { friendName } = req.body;
+
+    if (!friendName) {
+      return res.status(400).json({ error: 'Friend name is required' });
+    }
+
+    const friend = await Friend.findByIdAndUpdate(
+      id,
+      { friendName },
+      { new: true }
+    );
+
+    if (!friend) {
+      return res.status(404).json({ error: 'Friend not found' });
+    }
+
+    res.json({
+      success: true,
+      friend,
+    });
+  } catch (error) {
+    console.error('Error updating friend:', error);
+    res.status(500).json({ 
+      error: 'Failed to update friend',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Delete friend
+app.delete('/api/friends/:id', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const friend = await Friend.findByIdAndDelete(id);
+
+    if (!friend) {
+      return res.status(404).json({ error: 'Friend not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Friend removed',
+    });
+  } catch (error) {
+    console.error('Error deleting friend:', error);
+    res.status(500).json({ 
+      error: 'Failed to delete friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }

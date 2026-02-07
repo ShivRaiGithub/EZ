@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { RefreshCw, Plus, Users, Settings, History, Loader2, CheckCircle2, Trash2, Pause, Play, Wallet, DollarSign, ArrowUpRight } from 'lucide-react';
+import { RefreshCw, Plus, Settings, History, Loader2, CheckCircle2, Trash2, Pause, Play, Wallet, DollarSign, ArrowUpRight } from 'lucide-react';
 import { autopaymentApi } from '@/lib/api';
 import { BrowserProvider, Contract, parseUnits, formatUnits } from 'ethers';
 import { AutoPayFactoryABI, AutoPayWalletABI, ERC20_ABI } from '@/lib/contracts';
@@ -49,7 +49,6 @@ export default function AutoPayPage() {
     const [walletBalance, setWalletBalance] = useState<string>('0');
     const [usdcBalance, setUsdcBalance] = useState<string>('0');
     const [tab, setTab] = useState<'setup' | 'manage' | 'history' | 'wallet'>('wallet');
-    const [mode, setMode] = useState<'single' | 'multi'>('single');
     const [recipient, setRecipient] = useState('');
     const [amount, setAmount] = useState('');
     const [fundAmount, setFundAmount] = useState('');
@@ -754,31 +753,6 @@ export default function AutoPayPage() {
                     {/* Setup Tab */}
                     {tab === 'setup' && (
                         <div>
-                            {/* Mode Toggle */}
-                            <div className="flex gap-2 mb-6">
-                                <button
-                                    onClick={() => setMode('single')}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        mode === 'single'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    Single Recipient
-                                </button>
-                                <button
-                                    onClick={() => setMode('multi')}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                                        mode === 'multi'
-                                            ? 'bg-green-600 text-white'
-                                            : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50'
-                                    }`}
-                                >
-                                    <Users className="w-4 h-4" />
-                                    Multi Recipients
-                                </button>
-                            </div>
-
                             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
                                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                                     <div>
