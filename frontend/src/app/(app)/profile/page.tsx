@@ -1,202 +1,577 @@
 'use client';
 
-import { useState } from 'react';
-import { User, Wallet, History, ChevronDown, ExternalLink, Copy, CheckCircle2, XCircle } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { User, Wallet, History, ChevronDown, ExternalLink, Copy, CheckCircle2, XCircle, RefreshCw, Zap } from 'lucide-react';
 import { CHAIN_LOGOS } from '@/components/ChainLogos';
+import { BrowserProvider, Contract, formatUnits } from 'ethers';
+import { fetchUserTransactions, getExplorerUrl, FormattedTransaction } from '@/lib/transaction-utils';
 
-interface Transaction {
-    id: string;
-    type: 'send' | 'receive';
-    amount: string;
-    token: string;
-    from: string;
-    to: string;
-    chain: string;
-    date: string;
-    status: 'success' | 'failed' | 'pending';
-    txHash: string;
-}
+// Chain configurations (Testnets)
+const CHAINS = {
+  sepolia: {
+    name: 'Ethereum Sepolia',
+    chainId: 11155111,
+    rpc: 'https://sepolia.drpc.org',
+    usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
+    explorer: 'https://sepolia.etherscan.io',
+    nativeSymbol: 'ETH',
+  },
+  arbitrumSepolia: {
+    name: 'Arbitrum Sepolia',
+    chainId: 421614,
+    rpc: 'https://sepolia-rollup.arbitrum.io/rpc',
+    usdc: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
+    explorer: 'https://sepolia.arbiscan.io',
+    nativeSymbol: 'ETH',
+  },
+  optimismSepolia: {
+    name: 'Optimism Sepolia',
+    chainId: 11155420,
+    rpc: 'https://sepolia.optimism.io',
+    usdc: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
+    explorer: 'https://sepolia-optimism.etherscan.io',
+    nativeSymbol: 'ETH',
+  },
+  baseSepolia: {
+    name: 'Base Sepolia',
+    chainId: 84532,
+    rpc: 'https://sepolia.base.org',
+    usdc: '0x3600000000000000000000000000000000000000',
+    explorer: 'https://sepolia.basescan.org',
+    nativeSymbol: 'ETH',
+  },
+  polygonAmoy: {
+    name: 'Polygon Amoy',
+    chainId: 80002,
+    rpc: 'https://rpc-amoy.polygon.technology',
+    usdc: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
+    explorer: 'https://amoy.polygonscan.com',
+    nativeSymbol: 'MATIC',
+  },
+  arc: {
+    name: 'Arc Testnet',
+    chainId: 5042002,
+    rpc: 'https://rpc.testnet.arc.network',
+    usdc: '0x3600000000000000000000000000000000000000',
+    explorer: 'https://testnet.arcscan.app',
+    nativeSymbol: 'ETH',
+  },
+} as const;
 
-const mockTransactions: Transaction[] = [
-    { id: '1', type: 'send', amount: '100', token: 'USDC', from: '0xYou...', to: 'alice.eth', chain: 'ethereum', date: '2026-02-05', status: 'success', txHash: '0xabc...def' },
-    { id: '2', type: 'receive', amount: '50', token: 'USDC', from: 'bob.eth', to: '0xYou...', chain: 'base', date: '2026-02-04', status: 'success', txHash: '0x123...456' },
-    { id: '3', type: 'send', amount: '25', token: 'USDC', from: '0xYou...', to: '0x9876...5432', chain: 'arbitrum', date: '2026-02-03', status: 'failed', txHash: '0x789...abc' },
-    { id: '4', type: 'send', amount: '200', token: 'USDC', from: '0xYou...', to: 'charlie.eth', chain: 'polygon', date: '2026-02-02', status: 'success', txHash: '0xdef...123' },
-    { id: '5', type: 'receive', amount: '75', token: 'USDC', from: 'dave.eth', to: '0xYou...', chain: 'optimism', date: '2026-02-01', status: 'success', txHash: '0x456...789' },
+type ChainKey = keyof typeof CHAINS;
+
+const ERC20_ABI = [
+  'function balanceOf(address account) view returns (uint256)',
+  'function decimals() view returns (uint8)',
 ];
 
-const chainBalances: Record<string, { usdc: string; native: string; nativeSymbol: string }> = {
-    'Ethereum': { usdc: '1,234.56', native: '0.5', nativeSymbol: 'ETH' },
-    'Arbitrum': { usdc: '500.00', native: '0.1', nativeSymbol: 'ETH' },
-    'Optimism': { usdc: '250.00', native: '0.05', nativeSymbol: 'ETH' },
-    'Base': { usdc: '789.12', native: '0.08', nativeSymbol: 'ETH' },
-    'Polygon': { usdc: '150.00', native: '10', nativeSymbol: 'MATIC' },
-};
+interface ChainBalance {
+  usdc: string;
+  native: string;
+  nativeSymbol: string;
+  isLoading: boolean;
+}
+
+// Extend Window interface for MetaMask
+declare global {
+  interface Window {
+    ethereum?: {
+      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+      isMetaMask?: boolean;
+      providers?: Array<{
+        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+        isMetaMask?: boolean;
+      }>;
+      on?: (event: string, callback: (...args: any[]) => void) => void;
+      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
+    };
+  }
+}
 
 export default function ProfilePage() {
-    const [selectedChain, setSelectedChain] = useState('Ethereum');
-    const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
-    const [copied, setCopied] = useState(false);
+  const [userAddress, setUserAddress] = useState<string>('');
+  const [selectedChain, setSelectedChain] = useState<ChainKey>('arc');
+  const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [chainBalances, setChainBalances] = useState<Record<ChainKey, ChainBalance>>({} as any);
+  const [transactions, setTransactions] = useState<FormattedTransaction[]>([]);
+  const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-    const chains = ['Ethereum', 'Arbitrum', 'Optimism', 'Base', 'Polygon'];
-    const walletAddress = '0x742d35Cc6634C0532925a3b844Bc9e7595f8bA93';
+  // Get MetaMask provider
+  const getMetaMaskProvider = () => {
+    if (!window.ethereum) return null;
+    if (window.ethereum.providers) {
+      return window.ethereum.providers.find(provider => provider.isMetaMask);
+    }
+    if (window.ethereum.isMetaMask) {
+      return window.ethereum;
+    }
+    return null;
+  };
 
-    const copyAddress = () => {
-        navigator.clipboard.writeText(walletAddress);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+  // Connect wallet
+  const connectWallet = async () => {
+    try {
+      const metamaskProvider = getMetaMaskProvider();
+      if (!metamaskProvider) {
+        alert('Please install MetaMask!');
+        return;
+      }
+
+      const web3Provider = new BrowserProvider(metamaskProvider);
+      await web3Provider.send('eth_requestAccounts', []);
+      const signer = await web3Provider.getSigner();
+      const address = await signer.getAddress();
+
+      setUserAddress(address);
+      
+      // Fetch balances for all chains
+      await fetchAllBalances(address);
+      
+      // Fetch transaction history
+      await fetchTransactionHistory(address);
+    } catch (error) {
+      console.error('Error connecting wallet:', error);
+      alert('Failed to connect wallet');
+    }
+  };
+
+  // Disconnect wallet
+  const disconnectWallet = () => {
+    setUserAddress('');
+    setChainBalances({} as any);
+    setTransactions([]);
+  };
+
+  // Fetch balance for a specific chain
+  const fetchChainBalance = async (chainKey: ChainKey, address: string) => {
+    try {
+      const chain = CHAINS[chainKey];
+      
+      // Create a provider using the chain's RPC
+      const rpcProvider = new BrowserProvider({
+        request: async ({ method, params }: any) => {
+          const response = await fetch(chain.rpc, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              jsonrpc: '2.0',
+              id: 1,
+              method,
+              params: params || [],
+            }),
+          });
+          const data = await response.json();
+          return data.result;
+        },
+      } as any);
+
+      // Get native balance
+      const nativeBalance = await rpcProvider.getBalance(address);
+      const nativeFormatted = parseFloat(formatUnits(nativeBalance, 18)).toFixed(4);
+
+      // Get USDC balance
+      const usdcContract = new Contract(chain.usdc, ERC20_ABI, rpcProvider);
+      const usdcBalance = await usdcContract.balanceOf(address);
+      const usdcFormatted = parseFloat(formatUnits(usdcBalance, 6)).toFixed(2);
+
+      setChainBalances(prev => ({
+        ...prev,
+        [chainKey]: {
+          usdc: usdcFormatted,
+          native: nativeFormatted,
+          nativeSymbol: chain.nativeSymbol,
+          isLoading: false,
+        }
+      }));
+    } catch (error) {
+      console.error(`Error fetching balance for ${chainKey}:`, error);
+      setChainBalances(prev => ({
+        ...prev,
+        [chainKey]: {
+          usdc: '0.00',
+          native: '0.0000',
+          nativeSymbol: CHAINS[chainKey].nativeSymbol,
+          isLoading: false,
+        }
+      }));
+    }
+  };
+
+  // Fetch balances for all chains
+  const fetchAllBalances = async (address: string) => {
+    // Initialize loading state for all chains
+    const initialBalances = Object.keys(CHAINS).reduce((acc, key) => {
+      acc[key as ChainKey] = {
+        usdc: '0.00',
+        native: '0.0000',
+        nativeSymbol: CHAINS[key as ChainKey].nativeSymbol,
+        isLoading: true,
+      };
+      return acc;
+    }, {} as Record<ChainKey, ChainBalance>);
+
+    setChainBalances(initialBalances);
+
+    // Fetch balances in parallel
+    const fetchPromises = Object.keys(CHAINS).map(key => 
+      fetchChainBalance(key as ChainKey, address)
+    );
+
+    await Promise.allSettled(fetchPromises);
+  };
+
+  // Fetch transaction history
+  const fetchTransactionHistory = async (address: string) => {
+    setIsLoadingTransactions(true);
+    try {
+      const txHistory = await fetchUserTransactions(address);
+      setTransactions(txHistory);
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+    } finally {
+      setIsLoadingTransactions(false);
+    }
+  };
+
+  // Refresh balances
+  const refreshBalances = async () => {
+    if (!userAddress) return;
+    setIsRefreshing(true);
+    await fetchAllBalances(userAddress);
+    await fetchTransactionHistory(userAddress);
+    setIsRefreshing(false);
+  };
+
+  // Copy address
+  const copyAddress = () => {
+    if (!userAddress) return;
+    navigator.clipboard.writeText(userAddress);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  // Listen for account changes
+  useEffect(() => {
+    const metamaskProvider = getMetaMaskProvider();
+    if (!metamaskProvider || !metamaskProvider.on) return;
+
+    const handleAccountsChanged = (accounts: string[]) => {
+      if (accounts.length === 0) {
+        disconnectWallet();
+      } else if (accounts[0] !== userAddress) {
+        setUserAddress(accounts[0]);
+        fetchAllBalances(accounts[0]);
+        fetchTransactionHistory(accounts[0]);
+      }
     };
 
-    const balance = chainBalances[selectedChain];
-    const LogoComponent = CHAIN_LOGOS[selectedChain];
+    metamaskProvider.on('accountsChanged', handleAccountsChanged);
 
-    return (
-        <div className="max-w-4xl mx-auto">
-            {/* Page Header */}
-            <div className="mb-8">
-                <div className="flex items-center gap-3 mb-2">
-                    <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
-                        <User className="w-5 h-5 text-amber-600" />
-                    </div>
-                    <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-                </div>
-                <p className="text-gray-600">View your balances and transaction history</p>
-            </div>
+    return () => {
+      if (metamaskProvider.removeListener) {
+        metamaskProvider.removeListener('accountsChanged', handleAccountsChanged);
+      }
+    };
+  }, [userAddress]);
 
-            {/* Wallet Card */}
-            <div className="bg-linear-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
-                <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                        <Wallet className="w-5 h-5" />
-                        <span className="font-medium">Connected Wallet</span>
-                    </div>
-                    <button
-                        onClick={copyAddress}
-                        className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors"
-                    >
-                        <span className="font-mono">{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</span>
-                        {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                </div>
+  // Auto-connect on mount if previously connected
+  useEffect(() => {
+    const checkConnection = async () => {
+      const metamaskProvider = getMetaMaskProvider();
+      if (!metamaskProvider) return;
 
-                {/* Chain Selector */}
-                <div className="relative mb-4">
-                    <button
-                        onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
-                        className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors w-full"
-                    >
-                        <LogoComponent className="w-6 h-6" />
-                        <span className="font-medium flex-1 text-left">{selectedChain}</span>
-                        <ChevronDown className={`w-4 h-4 transition-transform ${isChainDropdownOpen ? 'rotate-180' : ''}`} />
-                    </button>
+      try {
+        const web3Provider = new BrowserProvider(metamaskProvider);
+        const accounts = await web3Provider.send('eth_accounts', []);
+        
+        if (accounts && (accounts as string[]).length > 0) {
+          const signer = await web3Provider.getSigner();
+          const address = await signer.getAddress();
+          setUserAddress(address);
+          await fetchAllBalances(address);
+          await fetchTransactionHistory(address);
+        }
+      } catch (error) {
+        console.error('Error checking connection:', error);
+      }
+    };
 
-                    {isChainDropdownOpen && (
-                        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-10">
-                            {chains.map((chain) => {
-                                const ChainLogo = CHAIN_LOGOS[chain];
-                                return (
-                                    <button
-                                        key={chain}
-                                        onClick={() => {
-                                            setSelectedChain(chain);
-                                            setIsChainDropdownOpen(false);
-                                        }}
-                                        className={`flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-50 transition-colors ${selectedChain === chain ? 'bg-indigo-50' : ''
-                                            }`}
-                                    >
-                                        <ChainLogo className="w-6 h-6" />
-                                        <span className="text-gray-900 font-medium">{chain}</span>
-                                        {selectedChain === chain && (
-                                            <CheckCircle2 className="w-4 h-4 text-indigo-600 ml-auto" />
-                                        )}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
+    checkConnection();
+  }, []);
 
-                {/* Balance Display */}
-                <div className="grid md:grid-cols-2 gap-4">
-                    <div className="bg-white/10 rounded-xl p-4">
-                        <p className="text-sm text-white/70 mb-1">USDC Balance</p>
-                        <p className="text-3xl font-bold">${balance.usdc}</p>
-                    </div>
-                    <div className="bg-white/10 rounded-xl p-4">
-                        <p className="text-sm text-white/70 mb-1">{balance.nativeSymbol} Balance</p>
-                        <p className="text-3xl font-bold">{balance.native} {balance.nativeSymbol}</p>
-                    </div>
-                </div>
-            </div>
+  const balance = chainBalances[selectedChain] || {
+    usdc: '0.00',
+    native: '0.0000',
+    nativeSymbol: CHAINS[selectedChain].nativeSymbol,
+    isLoading: true,
+  };
 
-            {/* Transaction History */}
-            <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-200 flex items-center gap-2">
-                    <History className="w-5 h-5 text-gray-400" />
-                    <h2 className="font-semibold text-gray-900">Transaction History</h2>
-                </div>
+  const LogoComponent = CHAIN_LOGOS[CHAINS[selectedChain].name] || CHAIN_LOGOS['Ethereum'];
 
-                <div className="divide-y divide-gray-100">
-                    {mockTransactions.map((tx) => (
-                        <div key={tx.id} className="px-6 py-4 flex items-center gap-4">
-                            {/* Type Icon */}
-                            <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'send' ? 'bg-red-100' : 'bg-green-100'
-                                }`}>
-                                <span className={`text-lg font-bold ${tx.type === 'send' ? 'text-red-600' : 'text-green-600'
-                                    }`}>
-                                    {tx.type === 'send' ? '↑' : '↓'}
-                                </span>
-                            </div>
+  // Calculate total USDC across all chains
+  const totalUSDC = Object.values(chainBalances).reduce(
+    (sum, chain) => sum + parseFloat(chain.usdc || '0'),
+    0
+  ).toFixed(2);
 
-                            {/* Details */}
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-medium text-gray-900">
-                                        {tx.type === 'send' ? 'Sent to' : 'Received from'}
-                                    </span>
-                                    <span className="font-mono text-sm text-gray-600">
-                                        {tx.type === 'send' ? tx.to : tx.from}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-sm text-gray-500">
-                                    <span>{tx.date}</span>
-                                    <span>•</span>
-                                    <span className="capitalize">{tx.chain}</span>
-                                </div>
-                            </div>
-
-                            {/* Amount */}
-                            <div className="text-right">
-                                <p className={`font-semibold ${tx.type === 'send' ? 'text-red-600' : 'text-green-600'}`}>
-                                    {tx.type === 'send' ? '-' : '+'}{tx.amount} {tx.token}
-                                </p>
-                                <div className="flex items-center justify-end gap-1 text-xs">
-                                    {tx.status === 'success' && (
-                                        <span className="text-green-600 flex items-center gap-1">
-                                            <CheckCircle2 className="w-3 h-3" /> Success
-                                        </span>
-                                    )}
-                                    {tx.status === 'failed' && (
-                                        <span className="text-red-600 flex items-center gap-1">
-                                            <XCircle className="w-3 h-3" /> Failed
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* External Link */}
-                            <a
-                                href={`https://etherscan.io/tx/${tx.txHash}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="p-2 hover:bg-gray-100 rounded-lg"
-                            >
-                                <ExternalLink className="w-4 h-4 text-gray-400" />
-                            </a>
-                        </div>
-                    ))}
-                </div>
-            </div>
+  return (
+    <div className="max-w-4xl mx-auto">
+      {/* Page Header */}
+      <div className="mb-8">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center">
+            <User className="w-5 h-5 text-amber-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
         </div>
-    );
+        <p className="text-gray-600">View your balances and transaction history across all chains</p>
+      </div>
+
+      {/* Connect Wallet Button */}
+      {!userAddress && (
+        <div className="bg-white rounded-xl border border-gray-200 p-12 text-center mb-6">
+          <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+          <p className="text-gray-500 mb-4">Connect your wallet to view your profile</p>
+          <button
+            onClick={connectWallet}
+            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
+          >
+            Connect MetaMask
+          </button>
+        </div>
+      )}
+
+      {/* Wallet Card */}
+      {userAddress && (
+        <>
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Wallet className="w-5 h-5" />
+                <span className="font-medium">Connected Wallet</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={copyAddress}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors"
+                >
+                  <span className="font-mono">{userAddress.slice(0, 6)}...{userAddress.slice(-4)}</span>
+                  {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </button>
+                <button
+                  onClick={refreshBalances}
+                  disabled={isRefreshing}
+                  className="p-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors disabled:opacity-50"
+                  title="Refresh balances"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                </button>
+                <button
+                  onClick={disconnectWallet}
+                  className="px-3 py-1.5 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors"
+                >
+                  Disconnect
+                </button>
+              </div>
+            </div>
+
+            {/* Total Portfolio Value */}
+            <div className="mb-4 pb-4 border-b border-white/20">
+              <p className="text-sm text-white/70 mb-1">Total Portfolio Value (USDC)</p>
+              <p className="text-4xl font-bold">${totalUSDC}</p>
+              <p className="text-xs text-white/60 mt-1">Across {Object.keys(CHAINS).length} chains</p>
+            </div>
+
+            {/* Chain Selector */}
+            <div className="relative mb-4">
+              <button
+                onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
+                className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors w-full"
+              >
+                <LogoComponent className="w-6 h-6" />
+                <span className="font-medium flex-1 text-left">{CHAINS[selectedChain].name}</span>
+                <ChevronDown className={`w-4 h-4 transition-transform ${isChainDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+
+              {isChainDropdownOpen && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden z-10 max-h-80 overflow-y-auto">
+                  {(Object.keys(CHAINS) as ChainKey[]).map((chainKey) => {
+                    const chain = CHAINS[chainKey];
+                    const ChainLogo = CHAIN_LOGOS[chain.name] || CHAIN_LOGOS['Ethereum'];
+                    const chainBalance = chainBalances[chainKey];
+                    return (
+                      <button
+                        key={chainKey}
+                        onClick={() => {
+                          setSelectedChain(chainKey);
+                          setIsChainDropdownOpen(false);
+                        }}
+                        className={`flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-50 transition-colors ${
+                          selectedChain === chainKey ? 'bg-indigo-50' : ''
+                        }`}
+                      >
+                        <ChainLogo className="w-6 h-6" />
+                        <div className="flex-1 text-left">
+                          <div className="text-gray-900 font-medium">{chain.name}</div>
+                          {chainBalance && !chainBalance.isLoading && (
+                            <div className="text-xs text-gray-500">${chainBalance.usdc} USDC</div>
+                          )}
+                        </div>
+                        {selectedChain === chainKey && (
+                          <CheckCircle2 className="w-4 h-4 text-indigo-600" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Balance Display */}
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="bg-white/10 rounded-xl p-4">
+                <p className="text-sm text-white/70 mb-1">USDC Balance</p>
+                {balance.isLoading ? (
+                  <div className="h-9 bg-white/10 rounded animate-pulse" />
+                ) : (
+                  <p className="text-3xl font-bold">${balance.usdc}</p>
+                )}
+              </div>
+              <div className="bg-white/10 rounded-xl p-4">
+                <p className="text-sm text-white/70 mb-1">{balance.nativeSymbol} Balance</p>
+                {balance.isLoading ? (
+                  <div className="h-9 bg-white/10 rounded animate-pulse" />
+                ) : (
+                  <p className="text-3xl font-bold">{balance.native} {balance.nativeSymbol}</p>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Transaction History */}
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-gray-400" />
+                <h2 className="font-semibold text-gray-900">Transaction History</h2>
+                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                  {transactions.length}
+                </span>
+              </div>
+              {isLoadingTransactions && (
+                <RefreshCw className="w-4 h-4 text-gray-400 animate-spin" />
+              )}
+            </div>
+
+            <div className="divide-y divide-gray-100">
+              {transactions.length === 0 && !isLoadingTransactions && (
+                <div className="px-6 py-12 text-center text-gray-500">
+                  <History className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                  <p>No transactions yet</p>
+                  <p className="text-sm text-gray-400 mt-2">Your payment history will appear here</p>
+                </div>
+              )}
+
+              {isLoadingTransactions && (
+                <div className="px-6 py-12 text-center">
+                  <RefreshCw className="w-8 h-8 text-gray-400 animate-spin mx-auto mb-4" />
+                  <p className="text-gray-500">Loading transactions...</p>
+                </div>
+              )}
+
+              {transactions.slice(0, 20).map((tx) => (
+                <div key={tx.id} className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                  {/* Type Icon */}
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
+                    tx.type === 'send' ? 'bg-red-100' : 'bg-green-100'
+                  }`}>
+                    <span className={`text-lg font-bold ${
+                      tx.type === 'send' ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {tx.type === 'send' ? '↑' : '↓'}
+                    </span>
+                  </div>
+
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium text-gray-900">
+                        {tx.type === 'send' ? 'Sent to' : 'Received from'}
+                      </span>
+                      <span className="font-mono text-sm text-gray-600 truncate">
+                        {tx.type === 'send' 
+                          ? `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}`
+                          : `${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`
+                        }
+                      </span>
+                      {tx.isAutoPay && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
+                          <Zap className="w-3 h-3" />
+                          AutoPay
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm text-gray-500">
+                      <span>{tx.date}</span>
+                      <span>•</span>
+                      <span className="capitalize">{CHAINS[tx.chain as ChainKey]?.name || tx.chain}</span>
+                    </div>
+                  </div>
+
+                  {/* Amount */}
+                  <div className="text-right">
+                    <p className={`font-semibold ${
+                      tx.type === 'send' ? 'text-red-600' : 'text-green-600'
+                    }`}>
+                      {tx.type === 'send' ? '-' : '+'}{tx.amount} {tx.token}
+                    </p>
+                    <div className="flex items-center justify-end gap-1 text-xs">
+                      {tx.status === 'success' && (
+                        <span className="text-green-600 flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3" /> Success
+                        </span>
+                      )}
+                      {tx.status === 'failed' && (
+                        <span className="text-red-600 flex items-center gap-1">
+                          <XCircle className="w-3 h-3" /> Failed
+                        </span>
+                      )}
+                      {tx.status === 'pending' && (
+                        <span className="text-yellow-600 flex items-center gap-1">
+                          <RefreshCw className="w-3 h-3" /> Pending
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* External Link */}
+                  {tx.txHash && (
+                    <a
+                      href={getExplorerUrl(tx.chain, tx.txHash)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                      title="View on explorer"
+                    >
+                      <ExternalLink className="w-4 h-4 text-gray-400" />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            {transactions.length > 20 && (
+              <div className="px-6 py-4 border-t border-gray-200 text-center">
+                <button className="text-indigo-600 hover:text-indigo-700 font-medium text-sm">
+                  View All Transactions ({transactions.length})
+                </button>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
 }
