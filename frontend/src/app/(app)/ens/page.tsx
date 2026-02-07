@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { Search, User, Globe2, Coins, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
+import { useENSLookup } from '@/hooks/useENS';
 
 interface ENSData {
     name: string;
@@ -15,48 +16,33 @@ interface ENSData {
     website?: string;
 }
 
-const mockENSData: Record<string, ENSData> = {
-    'vitalik.eth': {
-        name: 'vitalik.eth',
-        address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
-        preferredChain: 'ethereum',
-        preferredToken: 'ETH',
-        twitter: 'VitalikButerin',
-        github: 'vbuterin',
-        website: 'https://vitalik.ca',
-    },
-    'alice.eth': {
-        name: 'alice.eth',
-        address: '0x1234567890abcdef1234567890abcdef12345678',
-        preferredChain: 'base',
-        preferredToken: 'USDC',
-        email: 'alice@example.com',
-    },
-};
-
 export default function ENSPage() {
     const [query, setQuery] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [result, setResult] = useState<ENSData | null>(null);
-    const [error, setError] = useState('');
+    const [searchTerm, setSearchTerm] = useState('');
+    
+    // Use the actual ENS lookup hook
+    const { profile, isLoading, error: ensError } = useENSLookup(searchTerm);
+
+    // Transform profile data to match the existing UI format
+    const result: ENSData | null = profile ? {
+        name: profile.ensName || '',
+        address: profile.address,
+        avatar: profile.avatar || undefined,
+        preferredChain: profile.preferences?.chain,
+        preferredToken: profile.preferences?.token,
+        email: profile.records?.email || undefined,
+        twitter: profile.records?.twitter || undefined,
+        github: profile.records?.github || undefined,
+        website: profile.records?.url || undefined,
+    } : null;
+
+    const error = ensError || '';
 
     const handleSearch = async () => {
         if (!query) return;
-        setIsLoading(true);
-        setError('');
-        setResult(null);
-
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-
+        
         const ensName = query.endsWith('.eth') ? query : `${query}.eth`;
-        const data = mockENSData[ensName.toLowerCase()];
-
-        if (data) {
-            setResult(data);
-        } else {
-            setError(`No ENS profile found for "${ensName}"`);
-        }
-        setIsLoading(false);
+        setSearchTerm(ensName);
     };
 
     return (
@@ -120,7 +106,7 @@ export default function ENSPage() {
                             <div>
                                 <h2 className="text-2xl font-bold text-white">{result.name}</h2>
                                 <p className="text-sm text-white/80 font-mono">
-                                    {result.address.slice(0, 10)}...{result.address.slice(-8)}
+                                    {result.address}
                                 </p>
                             </div>
                         </div>
