@@ -1,4 +1,4 @@
-import { api } from './api';
+import { api, paymentHistoryApi } from './api';
 
 export interface TransactionHistoryItem {
   _id: string;
@@ -11,6 +11,10 @@ export interface TransactionHistoryItem {
   createdAt: string;
   txHash?: string;
   errorMessage?: string;
+  paymentType: 'auto-pay' | 'cross-chain' | 'arc-testnet';
+  burnTxHash?: string;
+  mintTxHash?: string;
+  sourceChain?: string;
 }
 
 export interface FormattedTransaction {
@@ -25,30 +29,41 @@ export interface FormattedTransaction {
   status: 'success' | 'failed' | 'pending';
   txHash: string;
   isAutoPay: boolean;
+  paymentType: 'auto-pay' | 'cross-chain' | 'arc-testnet';
+  sourceChain?: string;
+  destinationChain?: string;
+  burnTxHash?: string;
+  mintTxHash?: string;
 }
 
 // Fetch all transaction history for a user
 export const fetchUserTransactions = async (
-  userAddress: string
+  userAddress: string,
+  filterType?: 'auto-pay' | 'cross-chain' | 'arc-testnet'
 ): Promise<FormattedTransaction[]> => {
   try {
-    // Fetch autopay history
-    const autopayResponse = await api.get(`/api/payment-history/${userAddress}`);
-    const autopayHistory: TransactionHistoryItem[] = autopayResponse.data.history || [];
+    // Fetch all payment history with optional filter
+    const response = await paymentHistoryApi.getAll(userAddress, filterType);
+    const allHistory: TransactionHistoryItem[] = response.data.history || [];
 
-    // Format autopay transactions
-    const formattedTransactions: FormattedTransaction[] = autopayHistory.map((tx) => ({
+    // Format all transactions
+    const formattedTransactions: FormattedTransaction[] = allHistory.map((tx) => ({
       id: tx._id,
-      type: 'send', // Autopayments are always sends
+      type: 'send', // All payments are sends from this user's perspective
       amount: tx.amount,
       token: 'USDC',
       from: userAddress,
       to: tx.recipient,
       chain: tx.destinationChain,
-      date: new Date(tx.createdAt).toISOString().split('T')[0],
+      date: new Date(tx.createdAt).toLocaleDateString(),
       status: tx.status,
-      txHash: tx.txHash || '',
-      isAutoPay: true,
+      txHash: tx.mintTxHash || tx.txHash || tx.burnTxHash || '',
+      isAutoPay: tx.paymentType === 'auto-pay',
+      paymentType: tx.paymentType,
+      sourceChain: tx.sourceChain,
+      destinationChain: tx.destinationChain,
+      burnTxHash: tx.burnTxHash,
+      mintTxHash: tx.mintTxHash,
     }));
 
     // Sort by date (most recent first)

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { User, Wallet, History, ChevronDown, ExternalLink, Copy, CheckCircle2, XCircle, RefreshCw, Zap } from 'lucide-react';
+import { User, Wallet, History, ChevronDown, ExternalLink, Copy, CheckCircle2, XCircle, RefreshCw, Zap, Layers } from 'lucide-react';
 import { CHAIN_LOGOS } from '@/components/ChainLogos';
 import { BrowserProvider, Contract, formatUnits } from 'ethers';
 import { fetchUserTransactions, getExplorerUrl, FormattedTransaction } from '@/lib/transaction-utils';
@@ -97,6 +97,7 @@ export default function ProfilePage() {
   const [transactions, setTransactions] = useState<FormattedTransaction[]>([]);
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [selectedTxFilter, setSelectedTxFilter] = useState<'all' | 'auto-pay' | 'cross-chain' | 'arc-testnet'>('all');
 
   // Get MetaMask provider
   const getMetaMaskProvider = () => {
@@ -167,14 +168,17 @@ export default function ProfilePage() {
         },
       } as any);
 
-      // Get native balance
       const nativeBalance = await rpcProvider.getBalance(address);
       const nativeFormatted = parseFloat(formatUnits(nativeBalance, 18)).toFixed(4);
 
-      // Get USDC balance
-      const usdcContract = new Contract(chain.usdc, ERC20_ABI, rpcProvider);
-      const usdcBalance = await usdcContract.balanceOf(address);
-      const usdcFormatted = parseFloat(formatUnits(usdcBalance, 6)).toFixed(2);
+      let usdcFormatted = '0.00';
+      try {
+        const usdcContract = new Contract(chain.usdc, ERC20_ABI, rpcProvider);
+        const usdcBalance = await usdcContract.balanceOf(address);
+        usdcFormatted = parseFloat(formatUnits(usdcBalance, 6)).toFixed(2);
+      } catch (usdcError) {
+        console.warn(`USDC balance fetch failed for ${chainKey}:`, usdcError);
+      }
 
       setChainBalances(prev => ({
         ...prev,
@@ -223,10 +227,10 @@ export default function ProfilePage() {
   };
 
   // Fetch transaction history
-  const fetchTransactionHistory = async (address: string) => {
+  const fetchTransactionHistory = async (address: string, filter?: 'auto-pay' | 'cross-chain' | 'arc-testnet') => {
     setIsLoadingTransactions(true);
     try {
-      const txHistory = await fetchUserTransactions(address);
+      const txHistory = await fetchUserTransactions(address, filter);
       setTransactions(txHistory);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
@@ -240,7 +244,8 @@ export default function ProfilePage() {
     if (!userAddress) return;
     setIsRefreshing(true);
     await fetchAllBalances(userAddress);
-    await fetchTransactionHistory(userAddress);
+    const filter = selectedTxFilter === 'all' ? undefined : selectedTxFilter;
+    await fetchTransactionHistory(userAddress, filter);
     setIsRefreshing(false);
   };
 
@@ -336,7 +341,7 @@ export default function ProfilePage() {
           <p className="text-gray-500 mb-4">Connect your wallet to view your profile</p>
           <button
             onClick={connectWallet}
-            className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
+            className="bg-linear-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
           >
             Connect MetaMask
           </button>
@@ -346,7 +351,7 @@ export default function ProfilePage() {
       {/* Wallet Card */}
       {userAddress && (
         <>
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
+          <div className="bg-linear-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 mb-6 text-white">
             <div className="flex items-center justify-between mb-6">
               <div className="flex items-center gap-2">
                 <Wallet className="w-5 h-5" />
@@ -452,17 +457,75 @@ export default function ProfilePage() {
 
           {/* Transaction History */}
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <History className="w-5 h-5 text-gray-400" />
-                <h2 className="font-semibold text-gray-900">Transaction History</h2>
-                <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
-                  {transactions.length}
-                </span>
+            <div className="px-6 py-4 border-b border-gray-200">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-2">
+                  <History className="w-5 h-5 text-gray-400" />
+                  <h2 className="font-semibold text-gray-900">Transaction History</h2>
+                  <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                    {transactions.length}
+                  </span>
+                </div>
+                {isLoadingTransactions && (
+                  <RefreshCw className="w-4 h-4 text-gray-400 animate-spin" />
+                )}
               </div>
-              {isLoadingTransactions && (
-                <RefreshCw className="w-4 h-4 text-gray-400 animate-spin" />
-              )}
+              
+              {/* Filter buttons */}
+              <div className="flex gap-2">
+                <button
+                  onClick={async () => {
+                    setSelectedTxFilter('all');
+                    await fetchTransactionHistory(userAddress, undefined);
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedTxFilter === 'all'
+                      ? 'bg-indigo-100 text-indigo-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={async () => {
+                    setSelectedTxFilter('auto-pay');
+                    await fetchTransactionHistory(userAddress, 'auto-pay');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedTxFilter === 'auto-pay'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  AutoPay
+                </button>
+                <button
+                  onClick={async () => {
+                    setSelectedTxFilter('cross-chain');
+                    await fetchTransactionHistory(userAddress, 'cross-chain');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedTxFilter === 'cross-chain'
+                      ? 'bg-blue-100 text-blue-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Cross-Chain
+                </button>
+                <button
+                  onClick={async () => {
+                    setSelectedTxFilter('arc-testnet');
+                    await fetchTransactionHistory(userAddress, 'arc-testnet');
+                  }}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                    selectedTxFilter === 'arc-testnet'
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  Arc Testnet
+                </button>
+              </div>
             </div>
 
             <div className="divide-y divide-gray-100">
@@ -506,17 +569,33 @@ export default function ProfilePage() {
                           : `${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`
                         }
                       </span>
-                      {tx.isAutoPay && (
+                      {tx.paymentType === 'auto-pay' && (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs rounded-full">
                           <Zap className="w-3 h-3" />
                           AutoPay
+                        </span>
+                      )}
+                      {tx.paymentType === 'cross-chain' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full">
+                          <Layers className="w-3 h-3" />
+                          Cross-Chain
+                        </span>
+                      )}
+                      {tx.paymentType === 'arc-testnet' && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
+                          <Zap className="w-3 h-3" />
+                          Arc
                         </span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-sm text-gray-500">
                       <span>{tx.date}</span>
                       <span>•</span>
-                      <span className="capitalize">{CHAINS[tx.chain as ChainKey]?.name || tx.chain}</span>
+                      {tx.paymentType === 'cross-chain' && tx.sourceChain ? (
+                        <span className="capitalize">{tx.sourceChain} → {tx.destinationChain}</span>
+                      ) : (
+                        <span className="capitalize">{CHAINS[tx.chain as ChainKey]?.name || tx.chain}</span>
+                      )}
                     </div>
                   </div>
 

@@ -9,6 +9,10 @@ export interface IPaymentHistory extends Document {
   status: 'success' | 'failed' | 'pending';
   txHash?: string;
   errorMessage?: string;
+  paymentType: 'auto-pay' | 'cross-chain' | 'arc-testnet';
+  burnTxHash?: string;
+  mintTxHash?: string;
+  sourceChain?: string;
   createdAt: Date;
 }
 
@@ -43,6 +47,20 @@ const PaymentHistorySchema = new Schema<IPaymentHistory>({
     type: String,
   },
   errorMessage: {
+    type: String,
+  },
+  paymentType: {
+    type: String,
+    enum: ['auto-pay', 'cross-chain', 'arc-testnet'],
+    default: 'auto-pay',
+  },
+  burnTxHash: {
+    type: String,
+  },
+  mintTxHash: {
+    type: String,
+  },
+  sourceChain: {
     type: String,
   },
 }, {
