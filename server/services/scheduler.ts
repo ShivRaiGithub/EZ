@@ -223,6 +223,8 @@ async function executeAutoPayment(payment: any) {
     const relayerWallet = new Wallet(relayerPrivateKey, sourceProvider);
     
     const amountInSubunits = ethers.parseUnits(payment.amount, 6);
+    
+    console.log(`[AutoPay] Processing payment: ${payment.amount} USDC`);
 
     // Get user's contract wallet address from payment
     // NOTE: You need to add walletAddress field to AutoPayment model
@@ -238,7 +240,7 @@ async function executeAutoPayment(payment: any) {
       relayerWallet
     );
 
-    // Check wallet balance
+    // Check wallet balance (check for full amount, no fee deducted yet)
     const walletBalance = await autoPayWallet.getBalance();
     console.log(`[AutoPay] Wallet balance: ${ethers.formatUnits(walletBalance, 6)} USDC`);
 
@@ -250,12 +252,19 @@ async function executeAutoPayment(payment: any) {
     await executeTx.wait();
     console.log(`[AutoPay] Executed payment from contract: ${executeTx.hash}`);
 
+    // Now relayer has the full amount. Deduct fee before burning/transferring
+    const feeAmount = (amountInSubunits * BigInt(5)) / BigInt(10000); // 0.05% fee
+    const amountAfterFee = amountInSubunits - feeAmount;
+    
+    console.log(`[AutoPay] Fee deducted: ${ethers.formatUnits(feeAmount, 6)} USDC (0.05%)`);
+    console.log(`[AutoPay] Amount to send: ${ethers.formatUnits(amountAfterFee, 6)} USDC`);
+
     if (isSameChain) {
-      console.log(`[AutoPay] Same-chain payment, using direct transfer`);
+      console.log(`[AutoPay] Same-chain payment, using direct transfer (with fee)`);
       
-      // Relayer now has the USDC, just transfer it to recipient
+      // Relayer has the USDC, transfer amount after fee to recipient
       const usdcContract = new Contract(sourceChain.usdc, ERC20_ABI, relayerWallet);
-      const transferTx = await usdcContract.transfer(payment.recipient, amountInSubunits);
+      const transferTx = await usdcContract.transfer(payment.recipient, amountAfterFee);
       await transferTx.wait();
       
       console.log(`[AutoPay] Direct transfer completed: ${transferTx.hash}`);
@@ -281,7 +290,7 @@ async function executeAutoPayment(payment: any) {
       sourceChain.tokenMessenger
     );
 
-    if (currentAllowance < amountInSubunits) {
+    if (currentAllowance < amountAfterFee) {
       const approveTx = await usdcContract.approve(
         sourceChain.tokenMessenger,
         ethers.MaxUint256
@@ -290,7 +299,7 @@ async function executeAutoPayment(payment: any) {
       console.log(`[AutoPay] Approved USDC for bridging`);
     }
 
-    // Burn USDC on Arc Testnet
+    // Burn USDC on Arc Testnet (amount after fee)
     const tokenMessenger = new Contract(
       sourceChain.tokenMessenger,
       TOKEN_MESSENGER_ABI,
@@ -301,7 +310,7 @@ async function executeAutoPayment(payment: any) {
     const destinationCallerBytes32 = ethers.ZeroHash;
 
     const burnTx = await tokenMessenger.depositForBurn(
-      amountInSubunits,
+      amountAfterFee,
       destChain.domain,
       recipientBytes32,
       sourceChain.usdc,

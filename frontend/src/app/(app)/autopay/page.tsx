@@ -7,6 +7,7 @@ import { BrowserProvider, Contract, parseUnits, formatUnits } from 'ethers';
 import { AutoPayFactoryABI, AutoPayWalletABI, ERC20_ABI } from '@/lib/contracts';
 import { CONTRACT_ADDRESSES, ARC_TESTNET_CONFIG } from '@/lib/config';
 import { useAccount } from 'wagmi';
+import { AddressInput } from '@/components/AddressInput';
 
 // Extend Window interface for MetaMask
 declare global {
@@ -52,6 +53,7 @@ export default function AutoPayPage() {
     const [walletBalance, setWalletBalance] = useState<string>('0');
     const [usdcBalance, setUsdcBalance] = useState<string>('0');
     const [tab, setTab] = useState<'setup' | 'manage' | 'history' | 'wallet'>('wallet');
+    const [recipientInput, setRecipientInput] = useState('');
     const [recipient, setRecipient] = useState('');
     const [amount, setAmount] = useState('');
     const [fundAmount, setFundAmount] = useState('');
@@ -63,6 +65,18 @@ export default function AutoPayPage() {
     const [isFetching, setIsFetching] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    // Handle resolved address from AddressInput
+    const handleResolvedAddress = (address: string | null, preferredChain?: string) => {
+        setRecipient(address || '');
+        // Auto-set destination chain if ENS has a preference
+        if (preferredChain && address) {
+            const validChains = ['sepolia', 'base', 'arc'];
+            if (validChains.includes(preferredChain)) {
+                setDestinationChain(preferredChain);
+            }
+        }
+    };
 
     // Get MetaMask provider specifically
     const getMetaMaskProvider = () => {
@@ -733,15 +747,13 @@ export default function AutoPayPage() {
                             <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
                                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">
-                                            Recipient Address
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={recipient}
-                                            onChange={(e) => setRecipient(e.target.value)}
-                                            placeholder="0x... or ENS name"
-                                            className="input-field w-full"
+                                        <AddressInput
+                                            value={recipientInput}
+                                            onChange={setRecipientInput}
+                                            onResolvedAddress={handleResolvedAddress}
+                                            userAddress={userAddress}
+                                            placeholder="0x... or name.eth or contact name"
+                                            label="Recipient Address"
                                         />
                                     </div>
                                     <div>

@@ -2,15 +2,31 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { PaymentPreferences, ENSProfile } from '@/types';
+import { ethers } from 'ethers';
 
-// Mock ENS data for demo purposes
+// Sepolia ENS contract addresses
+const SEPOLIA_ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e';
+const SEPOLIA_PUBLIC_RESOLVER = '0x8FADE66B79cC9f707aB26799354482EB93a5B7dD';
+
+// Chain mapping for preferences
+const CHAIN_PREFERENCE_MAP: Record<string, string> = {
+    'sepolia': 'sepolia',
+    'ethereum': 'sepolia',
+    'base': 'base',
+    'arc': 'arc',
+    'optimism': 'optimism-sepolia',
+    'arbitrum': 'arbitrum-sepolia',
+    'polygon': 'polygon-amoy',
+};
+
+// Mock ENS data for demo purposes (fallback)
 const MOCK_ENS_DATA: Record<string, ENSProfile> = {
     'vitalik.eth': {
         address: '0xd8dA6BF26964aF9D7eEd9e03E53415D37aA96045',
         ensName: 'vitalik.eth',
         avatar: 'https://pbs.twimg.com/profile_images/977496875887558661/L86xyLF4_400x400.jpg',
         preferences: {
-            chain: 'optimism',
+            chain: 'sepolia',
             token: 'USDC',
         },
         records: {
@@ -24,7 +40,7 @@ const MOCK_ENS_DATA: Record<string, ENSProfile> = {
 };
 
 /**
- * Custom hook to fetch comprehensive ENS profile data
+ * Custom hook to fetch comprehensive ENS profile data from Sepolia testnet
  */
 export function useENSLookup(ensNameOrAddress: string | undefined) {
     const [profile, setProfile] = useState<ENSProfile | null>(null);
@@ -41,21 +57,70 @@ export function useENSLookup(ensNameOrAddress: string | undefined) {
             setIsLoading(true);
             setError(null);
 
-            // Simulate API call
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Use Sepolia RPC for ENS resolution
+            const provider = new ethers.JsonRpcProvider('https://sepolia.drpc.org');
+            
+            let resolvedAddress: string | null = null;
+            let ensName = '';
+            let preferredChain = 'sepolia'; // default
 
-            const mockProfile = MOCK_ENS_DATA[ensNameOrAddress.toLowerCase()];
+            // Check if input is an ENS name
+            if (ensNameOrAddress.endsWith('.eth')) {
+                ensName = ensNameOrAddress;
+                
+                try {
+                    // Resolve ENS name to address on Sepolia
+                    resolvedAddress = await provider.resolveName(ensNameOrAddress);
+                    
+                    if (resolvedAddress) {
+                        // Try to get text records for chain preference
+                        const resolver = await provider.getResolver(ensNameOrAddress);
+                        if (resolver) {
+                            try {
+                                const chainText = await resolver.getText('chain');
+                                if (chainText && CHAIN_PREFERENCE_MAP[chainText.toLowerCase()]) {
+                                    preferredChain = CHAIN_PREFERENCE_MAP[chainText.toLowerCase()];
+                                }
+                            } catch {
+                                // Chain preference not set, use default
+                            }
+                        }
+                    }
+                } catch (err) {
+                    // Try mock data as fallback
+                    const mockProfile = MOCK_ENS_DATA[ensNameOrAddress.toLowerCase()];
+                    if (mockProfile) {
+                        setProfile(mockProfile);
+                        return;
+                    }
+                    throw new Error('Could not resolve ENS name on Sepolia testnet');
+                }
+            } else if (ensNameOrAddress.startsWith('0x')) {
+                // Input is an address
+                resolvedAddress = ensNameOrAddress;
+                
+                try {
+                    // Try reverse lookup
+                    const lookupAddress = await provider.lookupAddress(ensNameOrAddress);
+                    if (lookupAddress) {
+                        ensName = lookupAddress;
+                    }
+                } catch {
+                    // No ENS name for this address
+                }
+            } else {
+                setError('Invalid ENS name or address');
+                setProfile(null);
+                return;
+            }
 
-            if (mockProfile) {
-                setProfile(mockProfile);
-            } else if (ensNameOrAddress.endsWith('.eth')) {
-                // Generate a demo profile for any .eth name
+            if (resolvedAddress) {
                 setProfile({
-                    address: '0x' + Math.random().toString(16).slice(2, 42).padEnd(40, '0'),
-                    ensName: ensNameOrAddress,
+                    address: resolvedAddress,
+                    ensName: ensName,
                     avatar: null,
                     preferences: {
-                        chain: 'base',
+                        chain: preferredChain,
                         token: 'USDC',
                     },
                     records: {
@@ -66,15 +131,8 @@ export function useENSLookup(ensNameOrAddress: string | undefined) {
                         description: null,
                     },
                 });
-            } else if (ensNameOrAddress.startsWith('0x')) {
-                setProfile({
-                    address: ensNameOrAddress,
-                    ensName: '',
-                    preferences: null,
-                    records: {},
-                });
             } else {
-                setError('Invalid ENS name or address');
+                setError('Could not resolve ENS name');
                 setProfile(null);
             }
         } catch (err) {

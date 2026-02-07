@@ -18,6 +18,7 @@ import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { paymentRequestApi } from '@/lib/api';
 import { CONTRACT_ADDRESSES, ARC_TESTNET_CONFIG } from '@/lib/config';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
+import { AddressInput } from '@/components/AddressInput';
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
@@ -47,6 +48,7 @@ export default function RequestsPage() {
   // Payment Requests State
   const [sentRequests, setSentRequests] = useState<PaymentRequest[]>([]);
   const [receivedRequests, setReceivedRequests] = useState<PaymentRequest[]>([]);
+  const [requestRecipientInput, setRequestRecipientInput] = useState('');
   const [requestRecipient, setRequestRecipient] = useState('');
   const [requestAmount, setRequestAmount] = useState('');
   const [requestMessage, setRequestMessage] = useState('');
@@ -65,6 +67,11 @@ export default function RequestsPage() {
       console.error('Failed to switch network:', error);
       throw error;
     }
+  };
+
+  // Handle resolved address from AddressInput
+  const handleResolvedAddress = (address: string | null) => {
+    setRequestRecipient(address || '');
   };
 
   // Fetch data when user connects
@@ -112,6 +119,7 @@ export default function RequestsPage() {
       
       if (response.data.success) {
         await fetchPaymentRequests();
+        setRequestRecipientInput('');
         setRequestRecipient('');
         setRequestAmount('');
         setRequestMessage('');
@@ -377,15 +385,13 @@ export default function RequestsPage() {
                 <h3 className="text-lg font-semibold mb-4">Request Payment</h3>
                 <div className="grid md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      From (Address or ENS)
-                    </label>
-                    <input
-                      type="text"
-                      value={requestRecipient}
-                      onChange={(e) => setRequestRecipient(e.target.value)}
-                      placeholder="0x... or name.eth"
-                      className="input-field w-full"
+                    <AddressInput
+                      value={requestRecipientInput}
+                      onChange={setRequestRecipientInput}
+                      onResolvedAddress={handleResolvedAddress}
+                      userAddress={userAddress}
+                      placeholder="0x... or name.eth or contact name"
+                      label="From (Address or ENS)"
                     />
                   </div>
                   <div>

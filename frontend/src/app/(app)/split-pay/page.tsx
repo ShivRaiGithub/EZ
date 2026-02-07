@@ -4,8 +4,7 @@ import { useState, useEffect } from 'react';
 import { BrowserProvider, ethers } from 'ethers';
 import { Users, Plus, X, Loader2, AlertCircle } from 'lucide-react';
 import { api, paymentHistoryApi, paymentRequestApi } from '@/lib/api';
-import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
-
+import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';import { AddressInput } from '@/components/AddressInput';
 // Chain configurations
 const CHAINS = {
   sepolia: {
@@ -81,6 +80,7 @@ export default function SplitPayPage() {
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const sourceChain: ChainKey = "arc"; // Always Arc as source
   const [destChain, setDestChain] = useState<ChainKey>("sepolia");
+  const [recipientInput, setRecipientInput] = useState<string>("");
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [splitUsers, setSplitUsers] = useState<string[]>([]);
@@ -108,6 +108,18 @@ export default function SplitPayPage() {
       setSigner(null);
     }
   }, [walletClient]);
+
+  // Handle resolved address from AddressInput
+  const handleResolvedAddress = (address: string | null, preferredChain?: string) => {
+    setRecipientAddress(address || '');
+    // Auto-set destination chain if ENS has a preference
+    if (preferredChain && address) {
+      const validChains: ChainKey[] = ['sepolia', 'base', 'arc'];
+      if (validChains.includes(preferredChain as ChainKey)) {
+        setDestChain(preferredChain as ChainKey);
+      }
+    }
+  };
 
   // Logging function
   const addLog = (message: string, type: LogEntry["type"] = "info") => {
@@ -292,6 +304,118 @@ export default function SplitPayPage() {
 
       addLog("Starting Split Payment", "info");
 
+      // Check if same chain - use direct transfer (NO FEE)
+      if (sourceChain === destChain) {
+        addLog("Same chain detected, using direct transfer (no fee)", "info");
+        
+        // Step 1: Switch to Arc
+        updateStep("switch-network", "Switch to Arc Network", "pending");
+        addLog("Switching Network...");
+        await switchNetwork(sourceConfig.chainId);
+        updateStep(
+          "switch-network",
+          "Switch to Arc Network",
+          "success",
+          `Connected to ${sourceConfig.name}`
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (!walletClient) {
+          throw new Error("Wallet client not available");
+        }
+        const provider = new BrowserProvider(walletClient);
+        const newSigner = await provider.getSigner();
+
+        // Step 2: Direct transfer
+        updateStep("transfer", "Send Payment to Recipient", "pending");
+        addLog("Transferring USDC...");
+
+        const usdcContract = new ethers.Contract(sourceConfig.usdc, ERC20_ABI, newSigner);
+        
+        const transferTx = await usdcContract.transfer(recipientAddress, amountInSubunits);
+        updateStep(
+          "transfer",
+          "Send Payment to Recipient",
+          "pending",
+          `Tx: ${transferTx.hash}`
+        );
+        
+        addLog("Confirming...");
+        await transferTx.wait();
+        
+        addLog("Transfer Complete", "success");
+        updateStep(
+          "transfer",
+          "Send Payment to Recipient",
+          "success",
+          `Explorer: ${sourceConfig.explorer}/tx/${transferTx.hash}`
+        );
+
+        // Step 3: Send payment requests to split users
+        updateStep("requests", "Sending Split Payment Requests", "pending");
+        addLog("Sending payment requests...");
+
+        let requestsSent = 0;
+        for (const splitUser of splitUsers) {
+          try {
+            await paymentRequestApi.create({
+              from: userAddress,
+              to: splitUser,
+              amount: splitAmount,
+              message: description || `Split payment for ${totalAmount} USDC`,
+            });
+            requestsSent++;
+          } catch (error) {
+            console.error('Failed to send request to', splitUser, error);
+          }
+        }
+
+        updateStep(
+          "requests",
+          "Sending Split Payment Requests",
+          "success",
+          `Sent ${requestsSent} of ${splitUsers.length} requests`
+        );
+
+        // Step 4: Complete
+        updateStep("complete", "Split Payment Complete", "success");
+        addLog("Success!", "success");
+
+        // Store transaction in database
+        try {
+          await api.post('/api/payment-history', {
+            userId: userAddress,
+            recipient: recipientAddress,
+            amount: totalAmount,
+            destinationChain: destChain,
+            txHash: transferTx.hash,
+            paymentType: 'cross-chain',
+          });
+        } catch (error) {
+          console.error('Failed to save payment history:', error);
+        }
+
+        setFinalResult({
+          success: true,
+          message: `Successfully sent ${totalAmount} USDC to ${recipientAddress}`,
+          burnTxHash: transferTx.hash,
+          splitAmount: splitAmount,
+          requestsSent: requestsSent,
+        });
+
+        setIsProcessing(false);
+        return;
+      }
+
+      // Cross-chain transfer - Apply 0.05% fee
+      const totalAmountInSubunits = amountInSubunits;
+      const feeAmount = (totalAmountInSubunits * BigInt(5)) / BigInt(10000); // 0.05% = 5/10000
+      const amountAfterFee = totalAmountInSubunits - feeAmount;
+      
+      addLog(`Cross-chain fee: ${ethers.formatUnits(feeAmount, 6)} USDC (0.05%)`, "info");
+      addLog(`Amount to send: ${ethers.formatUnits(amountAfterFee, 6)} USDC`, "info");
+
       // Step 1: Switch to Arc
       updateStep("switch-network", "Switch to Arc Network", "pending");
       addLog("Switching Network...");
@@ -322,7 +446,7 @@ export default function SplitPayPage() {
         sourceConfig.tokenMessenger
       );
 
-      if (currentAllowance < amountInSubunits) {
+      if (currentAllowance < amountAfterFee) {
         addLog("Approving...");
         const approveTx = await usdcContract.approve(
           sourceConfig.tokenMessenger,
@@ -362,7 +486,7 @@ export default function SplitPayPage() {
       const destinationCallerBytes32 = ethers.ZeroHash;
 
       const burnTx = await tokenMessenger.depositForBurn(
-        amountInSubunits,
+        amountAfterFee,
         destConfig.domain,
         recipientBytes32,
         sourceConfig.usdc,
@@ -554,15 +678,13 @@ export default function SplitPayPage() {
             
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Recipient Address
-                </label>
-                <input
-                  type="text"
-                  value={recipientAddress}
-                  onChange={(e) => setRecipientAddress(e.target.value)}
-                  placeholder="0x..."
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors"
+                <AddressInput
+                  value={recipientInput}
+                  onChange={setRecipientInput}
+                  onResolvedAddress={handleResolvedAddress}
+                  userAddress={userAddress}
+                  placeholder="0x... or name.eth or contact name"
+                  label="Recipient Address"
                   disabled={isProcessing}
                 />
               </div>

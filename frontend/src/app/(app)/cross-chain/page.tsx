@@ -5,6 +5,7 @@ import { BrowserProvider, ethers } from "ethers";
 import { Layers } from 'lucide-react';
 import { api, paymentHistoryApi } from '@/lib/api';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
+import { AddressInput } from '@/components/AddressInput';
 
 // Chain configurations
 const CHAINS = {
@@ -81,9 +82,8 @@ export default function CrossChainPage() {
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const [sourceChain, setSourceChain] = useState<ChainKey>("sepolia");
   const [destChain, setDestChain] = useState<ChainKey>("base");
-  const [recipientAddress, setRecipientAddress] = useState<string>(
-    "0xfe66129F538A41A33483D38FbDE57716524B0dda"
-  );
+  const [recipientInput, setRecipientInput] = useState<string>("");
+  const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [amount, setAmount] = useState<string>("1.0");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -94,6 +94,18 @@ export default function CrossChainPage() {
     burnTxHash?: string;
     mintTxHash?: string;
   } | null>(null);
+
+  // Handle resolved address from AddressInput
+  const handleResolvedAddress = (address: string | null, preferredChain?: string) => {
+    setRecipientAddress(address || '');
+    // Auto-set destination chain if ENS has a preference
+    if (preferredChain && address) {
+      const validChains: ChainKey[] = ['sepolia', 'base', 'arc'];
+      if (validChains.includes(preferredChain as ChainKey)) {
+        setDestChain(preferredChain as ChainKey);
+      }
+    }
+  };
 
   // Update signer when wallet client changes
   useEffect(() => {
@@ -234,11 +246,6 @@ export default function CrossChainPage() {
       return;
     }
 
-    if (sourceChain === destChain) {
-      alert("Source and destination chains must be different!");
-      return;
-    }
-
     setIsProcessing(true);
     setLogs([]);
     setSteps([]);
@@ -250,6 +257,90 @@ export default function CrossChainPage() {
       const amountInSubunits = ethers.parseUnits(amount, 6); // USDC has 6 decimals
 
       addLog("Starting Payment", "info");
+
+      // Check if same chain - use direct transfer (NO FEE)
+      if (sourceChain === destChain) {
+        addLog("Same chain detected, using direct transfer (no fee)", "info");
+        
+        // Step 1: Switch to source network
+        updateStep("switch-network", "Switch to Source Network", "pending");
+        addLog("Switching Network...");
+        await switchNetwork(sourceConfig.chainId);
+        updateStep(
+          "switch-network",
+          "Switch to Source Network",
+          "success",
+          `Connected to ${sourceConfig.name}`
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        if (!walletClient) {
+          throw new Error("Wallet client not available");
+        }
+        const provider = new BrowserProvider(walletClient as any);
+        const newSigner = await provider.getSigner();
+
+        // Step 2: Direct transfer
+        updateStep("transfer", "Transfer USDC", "pending");
+        addLog("Transferring USDC...");
+
+        const usdcContract = new ethers.Contract(sourceConfig.usdc, ERC20_ABI, newSigner);
+        
+        const transferTx = await usdcContract.transfer(recipientAddress, amountInSubunits);
+        updateStep(
+          "transfer",
+          "Transfer USDC",
+          "pending",
+          `Tx: ${transferTx.hash}`
+        );
+        
+        addLog("Confirming...");
+        await transferTx.wait();
+        
+        addLog("Transfer Complete", "success");
+        updateStep(
+          "transfer",
+          "Transfer USDC",
+          "success",
+          `Explorer: ${sourceConfig.explorer}/tx/${transferTx.hash}`
+        );
+
+        // Step 3: Complete
+        updateStep("complete", "Payment Complete", "success");
+        addLog("Success!", "success");
+
+        // Store transaction in database
+        try {
+          await api.post('/api/payment-history', {
+            userId: userAddress,
+            recipient: recipientAddress,
+            amount: amount,
+            destinationChain: destChain,
+            txHash: transferTx.hash,
+            paymentType: 'cross-chain',
+          });
+        } catch (error) {
+          console.error('Failed to save payment history:', error);
+        }
+
+        setFinalResult({
+          success: true,
+          message: `Successfully sent ${amount} USDC to ${recipientAddress}`,
+          burnTxHash: transferTx.hash,
+        });
+
+        setIsProcessing(false);
+        return;
+      }
+
+      // Cross-chain transfer - Apply 0.05% fee
+      const totalAmountInSubunits = amountInSubunits;
+      const feeAmount = (totalAmountInSubunits * BigInt(5)) / BigInt(10000); // 0.05% = 5/10000
+      const amountAfterFee = totalAmountInSubunits - feeAmount;
+      
+      addLog(`Cross-chain fee: ${ethers.formatUnits(feeAmount, 6)} USDC (0.05%)`, "info");
+      addLog(`Amount to send: ${ethers.formatUnits(amountAfterFee, 6)} USDC`, "info");
 
       // Step 1: Switch to source network
       updateStep("switch-network", "Switch to Source Network", "pending");
@@ -283,7 +374,7 @@ export default function CrossChainPage() {
         sourceConfig.tokenMessenger
       );
 
-      if (currentAllowance < amountInSubunits) {
+      if (currentAllowance < amountAfterFee) {
         addLog("Approving...");
         const approveTx = await usdcContract.approve(
           sourceConfig.tokenMessenger,
@@ -323,7 +414,7 @@ export default function CrossChainPage() {
       const destinationCallerBytes32 = ethers.ZeroHash; // Allow anyone to mint
 
       const burnTx = await tokenMessenger.depositForBurn(
-        amountInSubunits,
+        amountAfterFee,
         destConfig.domain,
         recipientBytes32,
         sourceConfig.usdc,
@@ -463,15 +554,13 @@ export default function CrossChainPage() {
         <div className="space-y-6 mb-8">
           {/* Recipient Address */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
-              Recipient Address
-            </label>
-            <input
-              type="text"
-              value={recipientAddress}
-              onChange={(e) => setRecipientAddress(e.target.value)}
-              placeholder="0x..."
-              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors"
+            <AddressInput
+              value={recipientInput}
+              onChange={setRecipientInput}
+              onResolvedAddress={handleResolvedAddress}
+              userAddress={userAddress}
+              placeholder="0x... or name.eth or contact name"
+              label="Recipient Address"
               disabled={isProcessing}
             />
           </div>
