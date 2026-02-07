@@ -19,14 +19,14 @@ interface ENSData {
 export default function ENSPage() {
     const [query, setQuery] = useState('');
     const [searchTerm, setSearchTerm] = useState('');
-    
+
     // Use the actual ENS lookup hook
     const { profile, isLoading, error: ensError } = useENSLookup(searchTerm);
 
     // Transform profile data to match the existing UI format
     const result: ENSData | null = profile ? {
         name: profile.ensName || '',
-        address: profile.address,
+        address: profile.address || '',
         avatar: profile.avatar || undefined,
         preferredChain: profile.preferences?.chain,
         preferredToken: profile.preferences?.token,
@@ -40,7 +40,7 @@ export default function ENSPage() {
 
     const handleSearch = async () => {
         if (!query) return;
-        
+
         const ensName = query.endsWith('.eth') ? query : `${query}.eth`;
         setSearchTerm(ensName);
     };

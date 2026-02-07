@@ -53,7 +53,7 @@ export default function Home() {
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200 mb-8">
               <Sparkles className="w-4 h-4 text-indigo-500" />
-              <span className="text-sm text-indigo-600 font-medium">Powered by Arc + Circle CCTP + ENS</span>
+              <span className="text-sm text-indigo-600 font-medium">Arc Ecosystem · Circle CCTP · ENS</span>
             </div>
 
             <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-gray-900">
@@ -64,7 +64,7 @@ export default function Home() {
 
             <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
               Cross-chain transfers, recurring payments, payment requests, and contacts
-              all powered by Arc&apos;s USDC-native infrastructure.
+              all integrated with Arc&apos;s USDC-native infrastructure.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
@@ -198,10 +198,10 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Powered by Arc — The Economic OS
+              Arc Ecosystem — The Economic OS
             </h3>
             <p className="text-gray-600 mt-4">
-              Circle&apos;s L1 blockchain designed for enterprise payments
+              Leveraging Circle&apos;s L1 blockchain for enterprise-grade payments
             </p>
           </div>
 
@@ -210,7 +210,7 @@ export default function Home() {
               <div className="w-14 h-14 mx-auto rounded-xl bg-green-100 flex items-center justify-center mb-4">
                 <CircleDollarSign className="w-7 h-7 text-green-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">USDC Gas</p>
+              <p className="text-2xl font-bold text-gray-900">USDC Fees</p>
               <p className="text-gray-600 mt-2">Pay fees in stablecoins, not volatile tokens</p>
             </div>
             <div className="stats-card">
@@ -339,7 +339,7 @@ export default function Home() {
                 <DollarSign className="w-7 h-7 text-amber-600" />
               </div>
               <h4 className="font-semibold text-gray-900 mb-2">Low Fees</h4>
-              <p className="text-sm text-gray-600">Predictable stablecoin gas</p>
+              <p className="text-sm text-gray-600">Predictable stablecoin fees</p>
             </div>
           </div>
         </div>
@@ -368,7 +368,7 @@ export default function Home() {
             <Logo width={100} height={30} />
           </div>
           <p className="text-gray-600 mb-2">
-            Built on Arc + Circle CCTP + ENS 🚀
+            Arc Ecosystem · Circle CCTP · ENS 🚀
           </p>
           <p className="text-sm text-gray-500">
             The complete crypto payments suite

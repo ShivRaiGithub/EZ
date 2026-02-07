@@ -1,6 +1,6 @@
 # EZ - Make Easy Payments 💸
 
-A comprehensive cross-chain crypto payments platform built on Arc and ENS. Send USDC across chains, set up recurring payments, request payments, and manage contacts — all with human-readable ENS names.
+A comprehensive cross-chain crypto payments platform integrated with Arc and ENS. Send USDC across chains, set up recurring payments, request payments, and manage contacts — all with human-readable ENS names.
 
 ![EZ Payments](https://img.shields.io/badge/HackMoney-2026-purple)
 ![Next.js](https://img.shields.io/badge/Next.js-16-black)
@@ -41,7 +41,7 @@ A comprehensive cross-chain crypto payments platform built on Arc and ENS. Send 
 - **Transaction Details** - View transaction hashes and explorer links
 
 ### 🌐 Arc Testnet
-- **USDC-Native Gas** - Pay transaction fees in stablecoins, not volatile tokens
+- **USDC-Native Fees** - Pay transaction fees in stablecoins, not volatile tokens
 - **Sub-Second Finality** - Deterministic finality for instant settlement
 - **Enterprise-Grade** - Built for reliability and compliance
 
@@ -157,7 +157,7 @@ EZ/
 
 ## 🏗️ Built With
 
-- **[Arc](https://arc.circle.com)** - Circle's Layer-1 blockchain with USDC-native gas
+- **[Arc](https://arc.circle.com)** - Circle's Layer-1 blockchain with USDC-native fees
 - **[Circle CCTP](https://www.circle.com/en/cross-chain-transfer-protocol)** - Cross-chain transfer protocol
 - **[ENS](https://ens.domains)** - Decentralized naming for payment preferences
 - **[RainbowKit](https://www.rainbowkit.com)** - Wallet connection UI
