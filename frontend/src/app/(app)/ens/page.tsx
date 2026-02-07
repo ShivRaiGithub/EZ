@@ -112,7 +112,7 @@ export default function ENSPage() {
             {result && (
                 <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
                     {/* Header */}
-                    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 p-6">
+                    <div className="bg-linear-to-r from-indigo-500 to-purple-600 p-6">
                         <div className="flex items-center gap-4">
                             <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
                                 <User className="w-8 h-8 text-white" />

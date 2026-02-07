@@ -10,13 +10,17 @@ import {
   Search,
   User,
   Home,
-  FileText
+  FileText,
+  Send,
+  Users
 } from 'lucide-react';
 
 const navItems = [
   { href: '/cross-chain', label: 'Cross-Chain', icon: Layers },
   { href: '/arc', label: 'Arc Testnet', icon: Zap },
   { href: '/autopay', label: 'Auto Pay', icon: RefreshCw },
+  { href: '/requests', label: 'Requests', icon: Send },
+  { href: '/contacts', label: 'Contacts', icon: Users },
   { href: '/ens', label: 'ENS Lookup', icon: Search },
   { href: '/profile', label: 'Profile', icon: User },
 ];
