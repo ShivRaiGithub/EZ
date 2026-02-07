@@ -195,6 +195,7 @@ async function executeAutoPayment(payment: any) {
     amount: payment.amount,
     destinationChain: payment.destinationChain,
     status: 'pending',
+    paymentType: 'auto-pay',
   });
 
   try {

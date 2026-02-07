@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BrowserProvider, ethers } from "ethers";
 import { Layers } from 'lucide-react';
-import {api} from '@/lib/api';
+import {api, paymentHistoryApi} from '@/lib/api';
 
 // Extend Window interface for MetaMask
 declare global {
@@ -426,6 +426,23 @@ export default function CrossChainPage() {
       // Step 6: Complete
       updateStep("complete", "Payment Complete", "success");
       addLog("Success!", "success");
+
+      // Store transaction in database
+      try {
+        await paymentHistoryApi.createCrossChain({
+          userId: userAddress,
+          recipient: recipientAddress,
+          amount: amount,
+          sourceChain: sourceChain,
+          destinationChain: destChain,
+          burnTxHash: burnTx.hash,
+          mintTxHash: mintTxHash,
+          status: 'success',
+        });
+      } catch (error) {
+        console.error('Failed to store transaction in database:', error);
+        // Don't fail the overall transaction if database storage fails
+      }
 
       setFinalResult({
         success: true,

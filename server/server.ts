@@ -110,7 +110,7 @@ const MESSAGE_TRANSMITTER_ABI = [
 ];
 
 // Health check endpoint
-app.get('/health', (req: Request, res: Response<HealthResponse>) => {
+app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
   res.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -240,7 +240,7 @@ app.post('/api/relay', async (req: Request<{}, {}, RelayRequest>, res: Response<
 });
 
 // Get relayer address endpoint
-app.get('/api/relayer-info', async (req: Request, res: Response<RelayerInfoResponse | ErrorResponse>) => {
+app.get('/api/relayer-info', async (_req: Request, res: Response<RelayerInfoResponse | ErrorResponse>) => {
   try {
     const relayerPrivateKey = process.env.RELAYER_PRIVATE_KEY;
     if (!relayerPrivateKey) {
@@ -266,13 +266,13 @@ app.get('/api/relayer-info', async (req: Request, res: Response<RelayerInfoRespo
       }
     }
 
-    res.json({
+    return res.json({
       address,
       balances,
       supportedChains: Object.keys(CHAINS)
     });
   } catch (error) {
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to get relayer info',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -341,13 +341,13 @@ app.post('/api/autopayments', async (req: Request, res: Response) => {
 
     await autoPayment.save();
 
-    res.json({
+    return res.json({
       success: true,
       autoPayment,
     });
   } catch (error) {
     console.error('Error creating autopayment:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to create autopayment',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -361,13 +361,13 @@ app.get('/api/autopayments/:userId', async (req: Request, res: Response) => {
 
     const autoPayments = await AutoPayment.find({ userId }).sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       autoPayments,
     });
   } catch (error) {
     console.error('Error fetching autopayments:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to fetch autopayments',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -394,13 +394,13 @@ app.patch('/api/autopayments/:id/status', async (req: Request, res: Response) =>
       return res.status(404).json({ error: 'Autopayment not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       autoPayment,
     });
   } catch (error) {
     console.error('Error updating autopayment:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to update autopayment',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -418,13 +418,13 @@ app.delete('/api/autopayments/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Autopayment not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Autopayment deleted',
     });
   } catch (error) {
     console.error('Error deleting autopayment:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to delete autopayment',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -435,17 +435,105 @@ app.delete('/api/autopayments/:id', async (req: Request, res: Response) => {
 app.get('/api/payment-history/:userId', async (req: Request, res: Response) => {
   try {
     const { userId } = req.params;
+    const { paymentType } = req.query;
 
-    const history = await PaymentHistory.find({ userId }).sort({ createdAt: -1 }).limit(50);
+    let query: any = { userId };
+    
+    // Filter by payment type if provided
+    if (paymentType && ['auto-pay', 'cross-chain', 'arc-testnet'].includes(paymentType as string)) {
+      query.paymentType = paymentType;
+    }
 
-    res.json({
+    const history = await PaymentHistory.find(query).sort({ createdAt: -1 }).limit(100);
+
+    return res.json({
       success: true,
       history,
     });
   } catch (error) {
     console.error('Error fetching payment history:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to fetch payment history',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Create cross-chain payment record
+app.post('/api/payment-history/cross-chain', async (req: Request, res: Response) => {
+  try {
+    const { userId, recipient, amount, sourceChain, destinationChain, burnTxHash, mintTxHash, status } = req.body;
+
+    if (!userId || !recipient || !amount || !sourceChain || !destinationChain || !burnTxHash) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['userId', 'recipient', 'amount', 'sourceChain', 'destinationChain', 'burnTxHash']
+      });
+    }
+
+    const paymentHistory = new PaymentHistory({
+      userId,
+      recipient,
+      amount,
+      sourceChain,
+      destinationChain,
+      burnTxHash,
+      mintTxHash,
+      txHash: mintTxHash || burnTxHash, // Use mintTxHash if available, otherwise burnTxHash
+      status: status || 'success',
+      paymentType: 'cross-chain',
+    });
+
+    await paymentHistory.save();
+
+    return res.json({
+      success: true,
+      paymentHistory,
+    });
+  } catch (error) {
+    console.error('Error creating cross-chain payment record:', error);
+    return res.status(500).json({ 
+      error: 'Failed to create payment record',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Create arc payment record
+app.post('/api/payment-history/arc', async (req: Request, res: Response) => {
+  try {
+    const { userId, recipient, amount, destinationChain, burnTxHash, mintTxHash, status } = req.body;
+
+    if (!userId || !recipient || !amount || !destinationChain || !burnTxHash) {
+      return res.status(400).json({ 
+        error: 'Missing required fields',
+        required: ['userId', 'recipient', 'amount', 'destinationChain', 'burnTxHash']
+      });
+    }
+
+    const paymentHistory = new PaymentHistory({
+      userId,
+      recipient,
+      amount,
+      sourceChain: 'arc',
+      destinationChain,
+      burnTxHash,
+      mintTxHash,
+      txHash: mintTxHash || burnTxHash,
+      status: status || 'success',
+      paymentType: 'arc-testnet',
+    });
+
+    await paymentHistory.save();
+
+    return res.json({
+      success: true,
+      paymentHistory,
+    });
+  } catch (error) {
+    console.error('Error creating arc payment record:', error);
+    return res.status(500).json({ 
+      error: 'Failed to create payment record',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
   }
@@ -477,7 +565,7 @@ app.post('/api/saved-addresses', async (req: Request, res: Response) => {
 
     await savedAddress.save();
 
-    res.json({
+    return res.json({
       success: true,
       savedAddress,
     });
@@ -486,7 +574,7 @@ app.post('/api/saved-addresses', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Address already saved' });
     }
     console.error('Error creating saved address:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to create saved address',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -500,13 +588,13 @@ app.get('/api/saved-addresses/:userId', async (req: Request, res: Response) => {
 
     const savedAddresses = await SavedAddress.find({ userId }).sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       savedAddresses,
     });
   } catch (error) {
     console.error('Error fetching saved addresses:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to fetch saved addresses',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -533,13 +621,13 @@ app.patch('/api/saved-addresses/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Saved address not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       savedAddress,
     });
   } catch (error) {
     console.error('Error updating saved address:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to update saved address',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -557,13 +645,13 @@ app.delete('/api/saved-addresses/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Saved address not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Saved address deleted',
     });
   } catch (error) {
     console.error('Error deleting saved address:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to delete saved address',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -598,13 +686,13 @@ app.post('/api/payment-requests', async (req: Request, res: Response) => {
 
     await paymentRequest.save();
 
-    res.json({
+    return res.json({
       success: true,
       paymentRequest,
     });
   } catch (error) {
     console.error('Error creating payment request:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to create payment request',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -618,13 +706,13 @@ app.get('/api/payment-requests/sent/:userId', async (req: Request, res: Response
 
     const requests = await PaymentRequest.find({ from: userId }).sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       requests,
     });
   } catch (error) {
     console.error('Error fetching sent payment requests:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to fetch payment requests',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -638,13 +726,13 @@ app.get('/api/payment-requests/received/:userId', async (req: Request, res: Resp
 
     const requests = await PaymentRequest.find({ to: userId }).sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       requests,
     });
   } catch (error) {
     console.error('Error fetching received payment requests:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to fetch payment requests',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -676,13 +764,13 @@ app.patch('/api/payment-requests/:id/status', async (req: Request, res: Response
       return res.status(404).json({ error: 'Payment request not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       paymentRequest,
     });
   } catch (error) {
     console.error('Error updating payment request:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to update payment request',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -700,13 +788,13 @@ app.delete('/api/payment-requests/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Payment request not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Payment request deleted',
     });
   } catch (error) {
     console.error('Error deleting payment request:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to delete payment request',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -740,7 +828,7 @@ app.post('/api/friends', async (req: Request, res: Response) => {
 
     await friend.save();
 
-    res.json({
+    return res.json({
       success: true,
       friend,
     });
@@ -749,7 +837,7 @@ app.post('/api/friends', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Friend already added' });
     }
     console.error('Error adding friend:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to add friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -763,13 +851,13 @@ app.get('/api/friends/:userId', async (req: Request, res: Response) => {
 
     const friends = await Friend.find({ userId }).sort({ createdAt: -1 });
 
-    res.json({
+    return res.json({
       success: true,
       friends,
     });
   } catch (error) {
     console.error('Error fetching friends:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to fetch friends',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -796,13 +884,13 @@ app.patch('/api/friends/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Friend not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       friend,
     });
   } catch (error) {
     console.error('Error updating friend:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to update friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -820,13 +908,13 @@ app.delete('/api/friends/:id', async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Friend not found' });
     }
 
-    res.json({
+    return res.json({
       success: true,
       message: 'Friend removed',
     });
   } catch (error) {
     console.error('Error deleting friend:', error);
-    res.status(500).json({ 
+    return res.status(500).json({ 
       error: 'Failed to delete friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -834,12 +922,12 @@ app.delete('/api/friends/:id', async (req: Request, res: Response) => {
 });
 
 // 404 handler
-app.use((req: Request, res: Response) => {
+app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: 'Endpoint not found' });
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
   res.status(500).json({ 
     error: 'Internal server error',

@@ -139,3 +139,38 @@ export const friendApi = {
     return axios.delete(`${API_BASE_URL}/api/friends/${id}`);
   },
 };
+
+export const paymentHistoryApi = {
+  // Get payment history with optional filter
+  getAll: (userId: string, paymentType?: 'auto-pay' | 'cross-chain' | 'arc-testnet') => {
+    const params = paymentType ? { paymentType } : {};
+    return axios.get(`${API_BASE_URL}/api/payment-history/${userId}`, { params });
+  },
+
+  // Create cross-chain payment record
+  createCrossChain: (data: {
+    userId: string;
+    recipient: string;
+    amount: string;
+    sourceChain: string;
+    destinationChain: string;
+    burnTxHash: string;
+    mintTxHash?: string;
+    status?: 'success' | 'failed' | 'pending';
+  }) => {
+    return axios.post(`${API_BASE_URL}/api/payment-history/cross-chain`, data);
+  },
+
+  // Create arc payment record
+  createArc: (data: {
+    userId: string;
+    recipient: string;
+    amount: string;
+    destinationChain: string;
+    burnTxHash: string;
+    mintTxHash?: string;
+    status?: 'success' | 'failed' | 'pending';
+  }) => {
+    return axios.post(`${API_BASE_URL}/api/payment-history/arc`, data);
+  },
+};

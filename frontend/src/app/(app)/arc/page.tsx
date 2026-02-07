@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { BrowserProvider, ethers } from "ethers";
 import { Zap, CircleDollarSign } from 'lucide-react';
-import {api} from '@/lib/api';
+import {api, paymentHistoryApi} from '@/lib/api';
 
 // Extend Window interface for MetaMask
 declare global {
@@ -453,6 +453,22 @@ export default function ArcPage() {
         // Refresh balance
         await fetchBalance(userAddress, newSigner);
 
+        // Store transaction in database
+        try {
+            await paymentHistoryApi.createArc({
+                userId: userAddress,
+                recipient: recipientAddress,
+                amount: amount,
+                destinationChain: destChain,
+                burnTxHash: burnTx.hash,
+                mintTxHash: mintTxHash,
+                status: 'success',
+            });
+        } catch (error) {
+            console.error('Failed to store transaction in database:', error);
+            // Don't fail the overall transaction if database storage fails
+        }
+
         setFinalResult({
             success: true,
             message: `Successfully sent ${amount} USDC to ${recipientAddress}`,
@@ -669,36 +685,6 @@ export default function ArcPage() {
                         </div>
                     )}
 
-                    {/* Status Messages */}
-                    {logs.length > 0 && (
-                        <div className="bg-white rounded-xl border border-gray-200 p-6">
-                            <h3 className="font-semibold text-lg mb-4">Status</h3>
-                            <div className="space-y-2 max-h-64 overflow-y-auto">
-                                {logs.map((log, idx) => (
-                                    <div
-                                        key={idx}
-                                        className={`flex items-center gap-3 p-3 rounded-lg ${
-                                            log.type === "success"
-                                                ? "bg-green-50 text-green-700"
-                                                : log.type === "error"
-                                                ? "bg-red-50 text-red-700"
-                                                : log.type === "warning"
-                                                ? "bg-yellow-50 text-yellow-700"
-                                                : "bg-gray-50 text-gray-700"
-                                        }`}
-                                    >
-                                        <span className="text-lg">
-                                            {log.type === "success" && "✓"}
-                                            {log.type === "error" && "✗"}
-                                            {log.type === "warning" && "⚠"}
-                                            {log.type === "info" && "•"}
-                                        </span>
-                                        <span className="font-medium">{log.message}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
 
                     {/* Final Result */}
                     {finalResult && (
