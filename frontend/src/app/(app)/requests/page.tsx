@@ -15,7 +15,7 @@ import {
   X
 } from 'lucide-react';
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
-import { paymentRequestApi } from '@/lib/api';
+import { paymentRequestApi, savedAddressApi, friendApi } from '@/lib/api';
 import { CONTRACT_ADDRESSES, ARC_TESTNET_CONFIG } from '@/lib/config';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { AddressInput } from '@/components/AddressInput';
@@ -37,6 +37,18 @@ interface PaymentRequest {
   createdAt: string;
 }
 
+interface SavedAddress {
+  _id: string;
+  address: string;
+  name: string;
+}
+
+interface Friend {
+  _id: string;
+  friendAddress: string;
+  friendName: string;
+}
+
 export default function RequestsPage() {
   // Wagmi hooks
   const { address: userAddress, isConnected } = useAccount();
@@ -52,6 +64,9 @@ export default function RequestsPage() {
   const [requestRecipient, setRequestRecipient] = useState('');
   const [requestAmount, setRequestAmount] = useState('');
   const [requestMessage, setRequestMessage] = useState('');
+  
+  // Contacts mapping
+  const [contactsMap, setContactsMap] = useState<Record<string, string>>({});
   
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,8 +93,50 @@ export default function RequestsPage() {
   useEffect(() => {
     if (userAddress) {
       fetchPaymentRequests();
+      fetchContacts();
     }
   }, [userAddress]);
+
+  // ========== CONTACTS ==========
+
+  const fetchContacts = async () => {
+    if (!userAddress) return;
+    
+    try {
+      const [savedAddressesRes, friendsRes] = await Promise.all([
+        savedAddressApi.getAll(userAddress),
+        friendApi.getAll(userAddress),
+      ]);
+      
+      console.log('Saved Addresses Response:', savedAddressesRes.data);
+      console.log('Friends Response:', friendsRes.data);
+      
+      const mapping: Record<string, string> = {};
+      
+      if (savedAddressesRes.data.success && savedAddressesRes.data.savedAddresses) {
+        savedAddressesRes.data.savedAddresses.forEach((addr: SavedAddress) => {
+          mapping[addr.address.toLowerCase()] = addr.name;
+        });
+      }
+      
+      if (friendsRes.data.success && friendsRes.data.friends) {
+        friendsRes.data.friends.forEach((friend: Friend) => {
+          mapping[friend.friendAddress.toLowerCase()] = friend.friendName;
+        });
+      }
+      
+      console.log('Contacts Map:', mapping);
+      setContactsMap(mapping);
+    } catch (error) {
+      console.error('Error fetching contacts:', error);
+    }
+  };
+
+  const getContactName = (address: string): string | null => {
+    const name = contactsMap[address.toLowerCase()] || null;
+    console.log(`Looking up contact for ${address}:`, name);
+    return name;
+  };
 
   // ========== PAYMENT REQUESTS ==========
 
@@ -325,7 +382,12 @@ export default function RequestsPage() {
                               <p className="font-semibold text-gray-900">{request.amount} USDC</p>
                               {getStatusBadge(request.status)}
                             </div>
-                            <p className="text-sm text-gray-600 font-mono mb-1">From: {request.from}</p>
+                            <div className="text-sm text-gray-600 mb-1">
+                              <span className="font-mono">{request.from}</span>
+                              {getContactName(request.from) && (
+                                <span className="ml-2 text-purple-600 font-medium">({getContactName(request.from)})</span>
+                              )}
+                            </div>
                             {request.message && (
                               <p className="text-sm text-gray-500 italic">{request.message}</p>
                             )}
@@ -456,7 +518,12 @@ export default function RequestsPage() {
                               <p className="font-semibold text-gray-900">{request.amount} USDC</p>
                               {getStatusBadge(request.status)}
                             </div>
-                            <p className="text-sm text-gray-600 font-mono mb-1">To: {request.to}</p>
+                            <div className="text-sm text-gray-600 mb-1">
+                              <span className="font-mono">{request.to}</span>
+                              {getContactName(request.to) && (
+                                <span className="ml-2 text-purple-600 font-medium">({getContactName(request.to)})</span>
+                              )}
+                            </div>
                             {request.message && (
                               <p className="text-sm text-gray-500 italic">{request.message}</p>
                             )}
