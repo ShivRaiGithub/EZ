@@ -12,11 +12,13 @@ import {
   Home,
   FileText,
   Send,
-  Users
+  Users,
+  UserPlus
 } from 'lucide-react';
 
 const navItems = [
   { href: '/cross-chain', label: 'Cross-Chain', icon: Layers },
+  { href: '/split-pay', label: 'Split Pay', icon: UserPlus },
   { href: '/autopay', label: 'Auto Pay', icon: RefreshCw },
   { href: '/requests', label: 'Requests', icon: Send },
   { href: '/contacts', label: 'Contacts', icon: Users },
