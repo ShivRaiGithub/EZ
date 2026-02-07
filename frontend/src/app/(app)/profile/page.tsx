@@ -72,20 +72,12 @@ interface ChainBalance {
   isLoading: boolean;
 }
 
-// Extend Window interface for MetaMask
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-      providers?: Array<{
-        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-        isMetaMask?: boolean;
-      }>;
-      on?: (event: string, callback: (...args: any[]) => void) => void;
-      removeListener?: (event: string, callback: (...args: any[]) => void) => void;
-    };
-  }
+// Type for MetaMask provider
+interface MetaMaskProvider {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+  isMetaMask?: boolean;
+  on?: (event: string, callback: (...args: any[]) => void) => void;
+  removeListener?: (event: string, callback: (...args: any[]) => void) => void;
 }
 
 export default function ProfilePage() {
@@ -100,13 +92,15 @@ export default function ProfilePage() {
   const [selectedTxFilter, setSelectedTxFilter] = useState<'all' | 'auto-pay' | 'cross-chain' | 'arc-testnet'>('all');
 
   // Get MetaMask provider
-  const getMetaMaskProvider = () => {
-    if (!window.ethereum) return null;
-    if (window.ethereum.providers) {
-      return window.ethereum.providers.find(provider => provider.isMetaMask);
+  const getMetaMaskProvider = (): MetaMaskProvider | null => {
+    if (typeof window === 'undefined' || !window.ethereum) return null;
+    const eth = window.ethereum as any;
+    if (eth.providers) {
+      const provider = eth.providers.find((p: any) => p.isMetaMask);
+      return provider as MetaMaskProvider | null;
     }
-    if (window.ethereum.isMetaMask) {
-      return window.ethereum;
+    if (eth.isMetaMask) {
+      return eth as MetaMaskProvider;
     }
     return null;
   };
@@ -126,10 +120,10 @@ export default function ProfilePage() {
       const address = await signer.getAddress();
 
       setUserAddress(address);
-      
+
       // Fetch balances for all chains
       await fetchAllBalances(address);
-      
+
       // Fetch transaction history
       await fetchTransactionHistory(address);
     } catch (error) {
@@ -149,7 +143,7 @@ export default function ProfilePage() {
   const fetchChainBalance = async (chainKey: ChainKey, address: string) => {
     try {
       const chain = CHAINS[chainKey];
-      
+
       // Create a provider using the chain's RPC
       const rpcProvider = new BrowserProvider({
         request: async ({ method, params }: any) => {
@@ -219,7 +213,7 @@ export default function ProfilePage() {
     setChainBalances(initialBalances);
 
     // Fetch balances in parallel
-    const fetchPromises = Object.keys(CHAINS).map(key => 
+    const fetchPromises = Object.keys(CHAINS).map(key =>
       fetchChainBalance(key as ChainKey, address)
     );
 
@@ -290,7 +284,7 @@ export default function ProfilePage() {
       try {
         const web3Provider = new BrowserProvider(metamaskProvider);
         const accounts = await web3Provider.send('eth_accounts', []);
-        
+
         if (accounts && (accounts as string[]).length > 0) {
           const signer = await web3Provider.getSigner();
           const address = await signer.getAddress();
@@ -337,14 +331,8 @@ export default function ProfilePage() {
       {/* Connect Wallet Button */}
       {!userAddress && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center mb-6">
-          <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 mb-4">Connect your wallet to view your profile</p>
-          <button
-            onClick={connectWallet}
-            className="bg-linear-to-r from-indigo-600 to-purple-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
-          >
-            Connect MetaMask
-          </button>
+          <p className="text-gray-700 text-lg mb-2">Connect your wallet to view your profile</p>
+          <p className="text-gray-500 text-sm">Use the "Connect Wallet" button in the top right corner</p>
         </div>
       )}
 
@@ -413,9 +401,8 @@ export default function ProfilePage() {
                           setSelectedChain(chainKey);
                           setIsChainDropdownOpen(false);
                         }}
-                        className={`flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-50 transition-colors ${
-                          selectedChain === chainKey ? 'bg-indigo-50' : ''
-                        }`}
+                        className={`flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-50 transition-colors ${selectedChain === chainKey ? 'bg-indigo-50' : ''
+                          }`}
                       >
                         <ChainLogo className="w-6 h-6" />
                         <div className="flex-1 text-left">
@@ -470,7 +457,7 @@ export default function ProfilePage() {
                   <RefreshCw className="w-4 h-4 text-gray-400 animate-spin" />
                 )}
               </div>
-              
+
               {/* Filter buttons */}
               <div className="flex gap-2">
                 <button
@@ -478,11 +465,10 @@ export default function ProfilePage() {
                     setSelectedTxFilter('all');
                     await fetchTransactionHistory(userAddress, undefined);
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedTxFilter === 'all'
-                      ? 'bg-indigo-100 text-indigo-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedTxFilter === 'all'
+                    ? 'bg-indigo-100 text-indigo-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                 >
                   All
                 </button>
@@ -491,11 +477,10 @@ export default function ProfilePage() {
                     setSelectedTxFilter('auto-pay');
                     await fetchTransactionHistory(userAddress, 'auto-pay');
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedTxFilter === 'auto-pay'
-                      ? 'bg-purple-100 text-purple-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedTxFilter === 'auto-pay'
+                    ? 'bg-purple-100 text-purple-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                 >
                   AutoPay
                 </button>
@@ -504,11 +489,10 @@ export default function ProfilePage() {
                     setSelectedTxFilter('cross-chain');
                     await fetchTransactionHistory(userAddress, 'cross-chain');
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedTxFilter === 'cross-chain'
-                      ? 'bg-blue-100 text-blue-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${selectedTxFilter === 'cross-chain'
+                    ? 'bg-blue-100 text-blue-700'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
                 >
                   Cross-Chain
                 </button>
@@ -532,14 +516,12 @@ export default function ProfilePage() {
               )}
 
               {transactions.slice(0, 20).map((tx) => (
-                <div key={tx.id} className="px-6 py-4 flex items-center gap-4 hover:bg-gray-50 transition-colors">
+                <div key={tx.id} className="px-6 py-4 flex items-center gap-4 hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors">
                   {/* Type Icon */}
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    tx.type === 'send' ? 'bg-red-100' : 'bg-green-100'
-                  }`}>
-                    <span className={`text-lg font-bold ${
-                      tx.type === 'send' ? 'text-red-600' : 'text-green-600'
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${tx.type === 'send' ? 'bg-red-100' : 'bg-green-100'
                     }`}>
+                    <span className={`text-lg font-bold ${tx.type === 'send' ? 'text-red-600' : 'text-green-600'
+                      }`}>
                       {tx.type === 'send' ? '↑' : '↓'}
                     </span>
                   </div>
@@ -551,7 +533,7 @@ export default function ProfilePage() {
                         {tx.type === 'send' ? 'Sent to' : 'Received from'}
                       </span>
                       <span className="font-mono text-sm text-gray-600 truncate">
-                        {tx.type === 'send' 
+                        {tx.type === 'send'
                           ? `${tx.to.slice(0, 6)}...${tx.to.slice(-4)}`
                           : `${tx.from.slice(0, 6)}...${tx.from.slice(-4)}`
                         }
@@ -588,9 +570,8 @@ export default function ProfilePage() {
 
                   {/* Amount */}
                   <div className="text-right">
-                    <p className={`font-semibold ${
-                      tx.type === 'send' ? 'text-red-600' : 'text-green-600'
-                    }`}>
+                    <p className={`font-semibold ${tx.type === 'send' ? 'text-red-600' : 'text-green-600'
+                      }`}>
                       {tx.type === 'send' ? '-' : '+'}{tx.amount} {tx.token}
                     </p>
                     <div className="flex items-center justify-end gap-1 text-xs">

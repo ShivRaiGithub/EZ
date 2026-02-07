@@ -121,7 +121,7 @@ export function ENSLookup({ onSelectAddress }: ENSLookupProps) {
                             )}
                             <div className="flex items-center gap-2 mt-1">
                                 <code className="text-sm text-gray-600 font-mono">
-                                    {shortenAddress(profile.address, 6)}
+                                    {profile.address ? shortenAddress(profile.address, 6) : ''}
                                 </code>
                                 <button
                                     onClick={copyAddress}

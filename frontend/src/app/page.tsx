@@ -34,15 +34,7 @@ export default function Home() {
               <Logo width={120} height={36} />
             </Link>
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                <Zap className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold logo-gradient">EZ</h1>
-                <p className="text-xs text-gray-500">Easy Payments</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
+              <ThemeToggle />
               <Link href="/cross-chain" className="btn-secondary px-4 py-2 text-sm">
                 Launch App
                 <ArrowRight className="w-4 h-4 ml-2" />

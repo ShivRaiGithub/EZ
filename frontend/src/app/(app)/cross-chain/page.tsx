@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { BrowserProvider, ethers } from "ethers";
 import { Layers } from 'lucide-react';
-import {api, paymentHistoryApi} from '@/lib/api';
+import { api, paymentHistoryApi } from '@/lib/api';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 
 // Chain configurations
@@ -203,12 +203,12 @@ export default function CrossChainPage() {
         destinationChain,
         attestation
       });
-      
+
       if (response.data.success && response.data.mintTxHash) {
         addLog("Mint Complete", "success");
         return response.data.mintTxHash;
       }
-      
+
       throw new Error(response.data.error || "Mint failed");
     } catch (error: any) {
       const message = error.response?.data?.error || error.message || "Mint failed";
@@ -481,22 +481,18 @@ export default function CrossChainPage() {
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Source Chain
             </label>
-            <div className="grid grid-cols-3 gap-4">
+            <select
+              value={sourceChain}
+              onChange={(e) => setSourceChain(e.target.value as ChainKey)}
+              disabled={isProcessing}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors bg-white"
+            >
               {(Object.keys(CHAINS) as ChainKey[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setSourceChain(key)}
-                  disabled={isProcessing}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    sourceChain === key
-                      ? "border-indigo-600 bg-indigo-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="font-semibold">{CHAINS[key].name}</div>
-                </button>
+                <option key={key} value={key}>
+                  {CHAINS[key].name}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Destination Chain */}
@@ -504,22 +500,18 @@ export default function CrossChainPage() {
             <label className="block text-sm font-semibold text-gray-700 mb-2">
               Destination Chain
             </label>
-            <div className="grid grid-cols-3 gap-4">
+            <select
+              value={destChain}
+              onChange={(e) => setDestChain(e.target.value as ChainKey)}
+              disabled={isProcessing}
+              className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors bg-white"
+            >
               {(Object.keys(CHAINS) as ChainKey[]).map((key) => (
-                <button
-                  key={key}
-                  onClick={() => setDestChain(key)}
-                  disabled={isProcessing}
-                  className={`p-4 rounded-lg border-2 transition-all ${
-                    destChain === key
-                      ? "border-indigo-600 bg-indigo-50"
-                      : "border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="font-semibold">{CHAINS[key].name}</div>
-                </button>
+                <option key={key} value={key} disabled={key === sourceChain}>
+                  {CHAINS[key].name} {key === sourceChain ? '(Source)' : ''}
+                </option>
               ))}
-            </div>
+            </select>
           </div>
 
           {/* Amount */}
@@ -543,11 +535,10 @@ export default function CrossChainPage() {
           <button
             onClick={executePayment}
             disabled={isProcessing}
-            className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${
-              isProcessing
+            className={`w-full py-4 rounded-lg font-semibold text-lg transition-all ${isProcessing
                 ? "bg-gray-400 cursor-not-allowed text-white"
                 : "bg-linear-to-r from-indigo-600 to-indigo-800 text-white hover:shadow-lg hover:-translate-y-1"
-            }`}
+              }`}
           >
             {isProcessing ? "Processing..." : "Send Payment"}
           </button>
@@ -565,15 +556,14 @@ export default function CrossChainPage() {
                 {steps.map((step) => (
                   <div
                     key={step.id}
-                    className={`p-4 rounded-lg border-2 ${
-                      step.status === "success"
+                    className={`p-4 rounded-lg border-2 ${step.status === "success"
                         ? "border-green-500 bg-green-50"
                         : step.status === "error"
-                        ? "border-red-500 bg-red-50"
-                        : step.status === "pending"
-                        ? "border-indigo-500 bg-indigo-50"
-                        : "border-gray-200 bg-gray-50"
-                    }`}
+                          ? "border-red-500 bg-red-50"
+                          : step.status === "pending"
+                            ? "border-indigo-500 bg-indigo-50"
+                            : "border-gray-200 bg-gray-50"
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="font-semibold">{step.title}</div>
@@ -603,16 +593,14 @@ export default function CrossChainPage() {
           {/* Final Result */}
           {finalResult && (
             <div
-              className={`p-6 rounded-xl text-center border-2 ${
-                finalResult.success
+              className={`p-6 rounded-xl text-center border-2 ${finalResult.success
                   ? "bg-green-50 border-green-500"
                   : "bg-red-50 border-red-500"
-              }`}
+                }`}
             >
               <h2
-                className={`text-2xl font-bold mb-4 ${
-                  finalResult.success ? "text-green-800" : "text-red-800"
-                }`}
+                className={`text-2xl font-bold mb-4 ${finalResult.success ? "text-green-800" : "text-red-800"
+                  }`}
               >
                 {finalResult.success ? "✓ Success!" : "✗ Failed"}
               </h2>

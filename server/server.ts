@@ -111,10 +111,10 @@ const MESSAGE_TRANSMITTER_ABI = [
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response<HealthResponse>) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     timestamp: new Date().toISOString(),
-    relayerConfigured: !!process.env.RELAYER_PRIVATE_KEY 
+    relayerConfigured: !!process.env.RELAYER_PRIVATE_KEY
   });
 });
 
@@ -125,14 +125,14 @@ app.post('/api/relay', async (req: Request<{}, {}, RelayRequest>, res: Response<
 
     // Validate inputs
     if (!burnTxHash || !destinationChain || !attestation) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required parameters',
         required: ['burnTxHash', 'destinationChain', 'attestation']
       });
     }
 
     if (!attestation.message || !attestation.attestation) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid attestation format',
         required: ['attestation.message', 'attestation.attestation']
       });
@@ -140,7 +140,7 @@ app.post('/api/relay', async (req: Request<{}, {}, RelayRequest>, res: Response<
 
     const chainConfig = CHAINS[destinationChain];
     if (!chainConfig) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Invalid destination chain',
         supportedChains: Object.keys(CHAINS)
       });
@@ -150,7 +150,7 @@ app.post('/api/relay', async (req: Request<{}, {}, RelayRequest>, res: Response<
     const relayerPrivateKey = process.env.RELAYER_PRIVATE_KEY;
     if (!relayerPrivateKey) {
       console.error('RELAYER_PRIVATE_KEY not configured');
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Relayer not configured on server'
       });
     }
@@ -172,7 +172,7 @@ app.post('/api/relay', async (req: Request<{}, {}, RelayRequest>, res: Response<
 
     if (balance === 0n) {
       console.error('Relayer wallet has no funds!');
-      return res.status(500).json({ 
+      return res.status(500).json({
         error: 'Relayer wallet has insufficient funds'
       });
     }
@@ -230,8 +230,8 @@ app.post('/api/relay', async (req: Request<{}, {}, RelayRequest>, res: Response<
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     console.error('[ERROR] Relayer failed:', error);
-    
-    return res.status(500).json({ 
+
+    return res.status(500).json({
       error: 'Failed to complete mint transaction',
       details: errorMessage,
       timestamp: new Date().toISOString()
@@ -252,7 +252,7 @@ app.get('/api/relayer-info', async (_req: Request, res: Response<RelayerInfoResp
 
     // Get balances for all chains
     const balances: Record<string, ChainBalance> = {};
-    
+
     for (const [chainKey, chainConfig] of Object.entries(CHAINS)) {
       try {
         const provider: JsonRpcProvider = new JsonRpcProvider(chainConfig.rpc);
@@ -272,7 +272,7 @@ app.get('/api/relayer-info', async (_req: Request, res: Response<RelayerInfoResp
       supportedChains: Object.keys(CHAINS)
     });
   } catch (error) {
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to get relayer info',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -282,7 +282,7 @@ app.get('/api/relayer-info', async (_req: Request, res: Response<RelayerInfoResp
 // Calculate next payment date based on frequency
 function calculateNextPayment(frequency: string, from: Date = new Date()): Date {
   const next = new Date(from);
-  
+
   switch (frequency) {
     case 'minute':
       next.setMinutes(next.getMinutes() + 1);
@@ -300,7 +300,7 @@ function calculateNextPayment(frequency: string, from: Date = new Date()): Date 
       next.setFullYear(next.getFullYear() + 1);
       break;
   }
-  
+
   return next;
 }
 
@@ -312,7 +312,7 @@ app.post('/api/autopayments', async (req: Request, res: Response) => {
     const { userId, walletAddress, recipient, amount, frequency, destinationChain } = req.body;
 
     if (!userId || !walletAddress || !recipient || !amount || !frequency || !destinationChain) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         required: ['userId', 'walletAddress', 'recipient', 'amount', 'frequency', 'destinationChain']
       });
@@ -347,7 +347,7 @@ app.post('/api/autopayments', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error creating autopayment:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create autopayment',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -367,7 +367,7 @@ app.get('/api/autopayments/:userId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching autopayments:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch autopayments',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -400,7 +400,7 @@ app.patch('/api/autopayments/:id/status', async (req: Request, res: Response) =>
     });
   } catch (error) {
     console.error('Error updating autopayment:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to update autopayment',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -424,7 +424,7 @@ app.delete('/api/autopayments/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting autopayment:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to delete autopayment',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -437,8 +437,9 @@ app.get('/api/payment-history/:userId', async (req: Request, res: Response) => {
     const { userId } = req.params;
     const { paymentType } = req.query;
 
-    let query: any = { userId };
-    
+    // Use case-insensitive regex for userId (wallet addresses can be in different cases)
+    let query: any = { userId: { $regex: new RegExp(`^${userId}$`, 'i') } };
+
     // Filter by payment type if provided
     if (paymentType && ['auto-pay', 'cross-chain', 'arc-testnet'].includes(paymentType as string)) {
       query.paymentType = paymentType;
@@ -452,7 +453,7 @@ app.get('/api/payment-history/:userId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching payment history:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch payment history',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -465,7 +466,7 @@ app.post('/api/payment-history/cross-chain', async (req: Request, res: Response)
     const { userId, recipient, amount, sourceChain, destinationChain, burnTxHash, mintTxHash, status } = req.body;
 
     if (!userId || !recipient || !amount || !sourceChain || !destinationChain || !burnTxHash) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         required: ['userId', 'recipient', 'amount', 'sourceChain', 'destinationChain', 'burnTxHash']
       });
@@ -492,7 +493,7 @@ app.post('/api/payment-history/cross-chain', async (req: Request, res: Response)
     });
   } catch (error) {
     console.error('Error creating cross-chain payment record:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create payment record',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -505,7 +506,7 @@ app.post('/api/payment-history/arc', async (req: Request, res: Response) => {
     const { userId, recipient, amount, destinationChain, burnTxHash, mintTxHash, status } = req.body;
 
     if (!userId || !recipient || !amount || !destinationChain || !burnTxHash) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         required: ['userId', 'recipient', 'amount', 'destinationChain', 'burnTxHash']
       });
@@ -532,7 +533,7 @@ app.post('/api/payment-history/arc', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error creating arc payment record:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create payment record',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -547,7 +548,7 @@ app.post('/api/saved-addresses', async (req: Request, res: Response) => {
     const { userId, address, name } = req.body;
 
     if (!userId || !address || !name) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         required: ['userId', 'address', 'name']
       });
@@ -574,7 +575,7 @@ app.post('/api/saved-addresses', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Address already saved' });
     }
     console.error('Error creating saved address:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create saved address',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -594,7 +595,7 @@ app.get('/api/saved-addresses/:userId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching saved addresses:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch saved addresses',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -627,7 +628,7 @@ app.patch('/api/saved-addresses/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error updating saved address:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to update saved address',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -651,7 +652,7 @@ app.delete('/api/saved-addresses/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting saved address:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to delete saved address',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -666,7 +667,7 @@ app.post('/api/payment-requests', async (req: Request, res: Response) => {
     const { from, to, amount, message } = req.body;
 
     if (!from || !to || !amount) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         required: ['from', 'to', 'amount']
       });
@@ -692,7 +693,7 @@ app.post('/api/payment-requests', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error creating payment request:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to create payment request',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -712,7 +713,7 @@ app.get('/api/payment-requests/sent/:userId', async (req: Request, res: Response
     });
   } catch (error) {
     console.error('Error fetching sent payment requests:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch payment requests',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -732,7 +733,7 @@ app.get('/api/payment-requests/received/:userId', async (req: Request, res: Resp
     });
   } catch (error) {
     console.error('Error fetching received payment requests:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch payment requests',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -770,7 +771,7 @@ app.patch('/api/payment-requests/:id/status', async (req: Request, res: Response
     });
   } catch (error) {
     console.error('Error updating payment request:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to update payment request',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -794,7 +795,7 @@ app.delete('/api/payment-requests/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting payment request:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to delete payment request',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -809,7 +810,7 @@ app.post('/api/friends', async (req: Request, res: Response) => {
     const { userId, friendAddress, friendName } = req.body;
 
     if (!userId || !friendAddress || !friendName) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Missing required fields',
         required: ['userId', 'friendAddress', 'friendName']
       });
@@ -837,7 +838,7 @@ app.post('/api/friends', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Friend already added' });
     }
     console.error('Error adding friend:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to add friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -857,7 +858,7 @@ app.get('/api/friends/:userId', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error fetching friends:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to fetch friends',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -890,7 +891,7 @@ app.patch('/api/friends/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error updating friend:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to update friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -914,7 +915,7 @@ app.delete('/api/friends/:id', async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Error deleting friend:', error);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: 'Failed to delete friend',
       details: error instanceof Error ? error.message : 'Unknown error'
     });
@@ -929,9 +930,9 @@ app.use((_req: Request, res: Response) => {
 // Error handler
 app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error('Unhandled error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Internal server error',
-    details: err.message 
+    details: err.message
   });
 });
 
@@ -940,10 +941,10 @@ const startServer = async () => {
   try {
     // Connect to MongoDB
     await connectDB();
-    
+
     // Start the autopayment scheduler
     startScheduler();
-    
+
     app.listen(PORT, () => {
       console.log('='.repeat(50));
       console.log('Cross-Chain Payment Relayer Server');

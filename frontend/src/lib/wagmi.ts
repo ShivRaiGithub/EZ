@@ -6,6 +6,7 @@ import {
     sepolia,
 } from 'wagmi/chains';
 import { defineChain } from 'viem';
+import { createStorage } from 'wagmi';
 
 // Define Arc Testnet chain
 const arcTestnet = defineChain({
@@ -36,6 +37,9 @@ export const config = getDefaultConfig({
         arcTestnet,
     ],
     ssr: true,
+    storage: createStorage({
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    }),
 });
 
 // Chain display names
