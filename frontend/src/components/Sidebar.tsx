@@ -17,7 +17,6 @@ import {
 
 const navItems = [
   { href: '/cross-chain', label: 'Cross-Chain', icon: Layers },
-  { href: '/arc', label: 'Arc Testnet', icon: Zap },
   { href: '/autopay', label: 'Auto Pay', icon: RefreshCw },
   { href: '/requests', label: 'Requests', icon: Send },
   { href: '/contacts', label: 'Contacts', icon: Users },
@@ -104,7 +103,7 @@ export function Sidebar() {
       <div className="px-4 py-4" style={{ borderTop: '1px solid var(--border-color)' }}>
         <div className="flex items-center gap-2 text-xs" style={{ color: 'var(--text-muted)' }}>
           <div className="w-2 h-2 rounded-full bg-green-400"></div>
-          Arc Testnet
+          Testnets Active
         </div>
       </div>
     </aside>

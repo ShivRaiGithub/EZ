@@ -12,23 +12,8 @@ import {
   CheckCircle2,
   Wallet
 } from 'lucide-react';
-import { BrowserProvider } from 'ethers';
 import { savedAddressApi } from '@/lib/api';
-import { ARC_TESTNET_CONFIG } from '@/lib/config';
-
-// Extend Window interface for MetaMask
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-      providers?: Array<{
-        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-        isMetaMask?: boolean;
-      }>;
-    };
-  }
-}
+import { useAccount } from 'wagmi';
 
 interface SavedAddress {
   _id: string;
@@ -38,7 +23,9 @@ interface SavedAddress {
 }
 
 export default function ContactsPage() {
-  const [userAddress, setUserAddress] = useState<string>('');
+  // Wagmi hooks
+  const { address: userAddress, isConnected } = useAccount();
+
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>([]);
   const [newAddressAddress, setNewAddressAddress] = useState('');
   const [newAddressName, setNewAddressName] = useState('');
@@ -47,78 +34,6 @@ export default function ContactsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-
-  // Get MetaMask provider
-  const getMetaMaskProvider = () => {
-    if (!window.ethereum) return null;
-    
-    if (window.ethereum.providers) {
-      return window.ethereum.providers.find(provider => provider.isMetaMask);
-    }
-    
-    if (window.ethereum.isMetaMask) {
-      return window.ethereum;
-    }
-    
-    return null;
-  };
-
-  // Switch to Arc Testnet
-  const switchToArcTestnet = async () => {
-    const metamaskProvider = getMetaMaskProvider();
-    if (!metamaskProvider) return;
-
-    try {
-      await metamaskProvider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${ARC_TESTNET_CONFIG.chainId.toString(16)}` }],
-      });
-    } catch (switchError: any) {
-      if (switchError.code === 4902) {
-        try {
-          await metamaskProvider.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: `0x${ARC_TESTNET_CONFIG.chainId.toString(16)}`,
-              chainName: ARC_TESTNET_CONFIG.chainName,
-              rpcUrls: [ARC_TESTNET_CONFIG.rpcUrl],
-              blockExplorerUrls: [ARC_TESTNET_CONFIG.explorer],
-              nativeCurrency: ARC_TESTNET_CONFIG.nativeCurrency,
-            }],
-          });
-        } catch {
-          throw new Error('Failed to add Arc Testnet');
-        }
-      } else {
-        throw switchError;
-      }
-    }
-  };
-
-  // Connect wallet
-  const connectWallet = async () => {
-    try {
-      const metamaskProvider = getMetaMaskProvider();
-      
-      if (!metamaskProvider) {
-        alert("Please install MetaMask!");
-        return;
-      }
-
-      await switchToArcTestnet();
-
-      const web3Provider = new BrowserProvider(metamaskProvider);
-      await web3Provider.send("eth_requestAccounts", []);
-      
-      const signer = await web3Provider.getSigner();
-      const address = await signer.getAddress();
-
-      setUserAddress(address);
-    } catch (error) {
-      console.error('Connection Failed:', error);
-      setError('Failed to connect wallet');
-    }
-  };
 
   // Fetch data when user connects
   useEffect(() => {
@@ -233,21 +148,16 @@ export default function ContactsPage() {
       )}
 
       {/* Wallet Not Connected */}
-      {!userAddress && (
+      {!isConnected && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">Connect your wallet to get started</p>
-          <button
-            onClick={connectWallet}
-            className="mt-4 bg-linear-to-r from-blue-600 to-cyan-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
-          >
-            Connect MetaMask
-          </button>
+          <p className="text-sm text-gray-400">Use the &quot;Connect Wallet&quot; button in the top right corner</p>
         </div>
       )}
 
       {/* Main Content */}
-      {userAddress && (
+      {isConnected && userAddress && (
         <>
           {/* User Info Card */}
           <div className="bg-linear-to-r from-blue-600 to-cyan-600 rounded-xl p-6 mb-6 text-white">

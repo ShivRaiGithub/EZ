@@ -512,19 +512,6 @@ export default function ProfilePage() {
                 >
                   Cross-Chain
                 </button>
-                <button
-                  onClick={async () => {
-                    setSelectedTxFilter('arc-testnet');
-                    await fetchTransactionHistory(userAddress, 'arc-testnet');
-                  }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                    selectedTxFilter === 'arc-testnet'
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  Arc Testnet
-                </button>
               </div>
             </div>
 

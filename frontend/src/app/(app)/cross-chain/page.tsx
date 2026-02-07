@@ -1,23 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { BrowserProvider, ethers } from "ethers";
 import { Layers } from 'lucide-react';
 import {api, paymentHistoryApi} from '@/lib/api';
-
-// Extend Window interface for MetaMask
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-      providers?: Array<{
-        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-        isMetaMask?: boolean;
-      }>;
-    };
-  }
-}
+import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 
 // Chain configurations
 const CHAINS = {
@@ -86,9 +73,12 @@ interface AttestationMessage {
 }
 
 export default function CrossChainPage() {
-  const [provider, setProvider] = useState<BrowserProvider | null>(null);
+  // Wagmi hooks
+  const { address: userAddress, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
+
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
-  const [userAddress, setUserAddress] = useState<string>("");
   const [sourceChain, setSourceChain] = useState<ChainKey>("sepolia");
   const [destChain, setDestChain] = useState<ChainKey>("base");
   const [recipientAddress, setRecipientAddress] = useState<string>(
@@ -104,6 +94,16 @@ export default function CrossChainPage() {
     burnTxHash?: string;
     mintTxHash?: string;
   } | null>(null);
+
+  // Update signer when wallet client changes
+  useEffect(() => {
+    if (walletClient) {
+      const provider = new BrowserProvider(walletClient as any);
+      provider.getSigner().then(setSigner);
+    } else {
+      setSigner(null);
+    }
+  }, [walletClient]);
 
   // Logging function
   const addLog = (message: string, type: LogEntry["type"] = "info") => {
@@ -132,66 +132,15 @@ export default function CrossChainPage() {
     });
   };
 
-  // Get MetaMask provider specifically
-  const getMetaMaskProvider = () => {
-    if (!window.ethereum) return null;
-    
-    // If multiple providers exist, find MetaMask
-    if (window.ethereum.providers) {
-      return window.ethereum.providers.find(provider => provider.isMetaMask);
-    }
-    
-    // Otherwise check if current provider is MetaMask
-    if (window.ethereum.isMetaMask) {
-      return window.ethereum;
-    }
-    
-    return null;
-  };
-
-  // Connect wallet
-  const connectWallet = async () => {
-    try {
-      const metamaskProvider = getMetaMaskProvider();
-      
-      if (!metamaskProvider) {
-        alert("Please install MetaMask! If you have multiple wallets, make sure MetaMask is enabled.");
-        return;
-      }
-
-      addLog("Connecting...");
-      const web3Provider = new BrowserProvider(metamaskProvider);
-      await web3Provider.send("eth_requestAccounts", []);
-      const web3Signer = await web3Provider.getSigner();
-      const address = await web3Signer.getAddress();
-
-      setProvider(web3Provider);
-      setSigner(web3Signer);
-      setUserAddress(address);
-
-      addLog("Connected", "success");
-    } catch {
-      addLog("Connection Failed", "error");
-    }
-  };
-
-  // Switch network
+  // Switch network using wagmi
   const switchNetwork = async (chainId: number) => {
     try {
-      const metamaskProvider = getMetaMaskProvider();
-      if (!metamaskProvider) {
-        throw new Error("MetaMask not found");
+      if (switchChainAsync) {
+        await switchChainAsync({ chainId });
+        addLog("Network Switched", "success");
       }
-      await metamaskProvider.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: "0x" + chainId.toString(16) }],
-      });
-      addLog("Network Switched", "success");
     } catch (error) {
-      const err = error as { code?: number };
-      if (err.code === 4902) {
-        addLog("Chain Not Found", "error");
-      }
+      addLog("Failed to switch network", "error");
       throw error;
     }
   };
@@ -270,7 +219,7 @@ export default function CrossChainPage() {
 
   // Main payment execution
   const executePayment = async () => {
-    if (!signer || !provider) {
+    if (!signer || !isConnected || !userAddress) {
       alert("Please connect your wallet first!");
       return;
     }
@@ -313,13 +262,15 @@ export default function CrossChainPage() {
         `Connected to ${sourceConfig.name}`
       );
 
-      // Refresh provider after network switch
-      const metamaskProvider = getMetaMaskProvider();
-      if (!metamaskProvider) {
-        throw new Error("MetaMask not found");
+      // Wait a bit for the network switch to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // Get fresh signer after network switch
+      if (!walletClient) {
+        throw new Error("Wallet client not available");
       }
-      const newProvider = new BrowserProvider(metamaskProvider);
-      const newSigner = await newProvider.getSigner();
+      const provider = new BrowserProvider(walletClient as any);
+      const newSigner = await provider.getSigner();
 
       // Step 2: Approve USDC
       updateStep("approve", "Approve USDC", "pending");
@@ -485,15 +436,17 @@ export default function CrossChainPage() {
       </div>
 
       {/* Wallet Section */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        {!userAddress ? (
-          <button
-            onClick={connectWallet}
-            className="w-full bg-linear-to-r from-indigo-600 to-indigo-800 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
-          >
-            Connect MetaMask
-          </button>
-        ) : (
+      {!isConnected && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
+          <div className="text-center py-8">
+            <p className="text-gray-600 mb-4">Connect your wallet to start sending cross-chain payments</p>
+            <p className="text-sm text-gray-500">Use the &quot;Connect Wallet&quot; button in the top right corner</p>
+          </div>
+        </div>
+      )}
+
+      {isConnected && userAddress && (
+        <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
           <div className="flex justify-between items-center">
             <div>
               <div className="text-sm text-gray-600 mb-1">Connected Wallet</div>
@@ -501,22 +454,12 @@ export default function CrossChainPage() {
                 {userAddress.slice(0, 6)}...{userAddress.slice(-4)}
               </div>
             </div>
-            <button
-              onClick={() => {
-                setProvider(null);
-                setSigner(null);
-                setUserAddress("");
-              }}
-              className="bg-gray-200 hover:bg-gray-300 px-4 py-2 rounded-lg transition-colors text-sm"
-            >
-              Disconnect
-            </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Payment Form */}
-      {userAddress && (
+      {isConnected && userAddress && (
         <div className="space-y-6 mb-8">
           {/* Recipient Address */}
           <div className="bg-white rounded-xl border border-gray-200 p-6">

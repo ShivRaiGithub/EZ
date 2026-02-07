@@ -17,26 +17,13 @@ import {
 import { BrowserProvider, Contract, parseUnits } from 'ethers';
 import { paymentRequestApi } from '@/lib/api';
 import { CONTRACT_ADDRESSES, ARC_TESTNET_CONFIG } from '@/lib/config';
+import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 
 const ERC20_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
   'function balanceOf(address account) view returns (uint256)',
   'function approve(address spender, uint256 amount) returns (bool)',
 ];
-
-// Extend Window interface for MetaMask
-declare global {
-  interface Window {
-    ethereum?: {
-      request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-      isMetaMask?: boolean;
-      providers?: Array<{
-        request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-        isMetaMask?: boolean;
-      }>;
-    };
-  }
-}
 
 interface PaymentRequest {
   _id: string;
@@ -50,7 +37,11 @@ interface PaymentRequest {
 }
 
 export default function RequestsPage() {
-  const [userAddress, setUserAddress] = useState<string>('');
+  // Wagmi hooks
+  const { address: userAddress, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const { switchChainAsync } = useSwitchChain();
+
   const [tab, setTab] = useState<'received' | 'sent'>('received');
   
   // Payment Requests State
@@ -64,75 +55,15 @@ export default function RequestsPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Get MetaMask provider
-  const getMetaMaskProvider = () => {
-    if (!window.ethereum) return null;
-    
-    if (window.ethereum.providers) {
-      return window.ethereum.providers.find(provider => provider.isMetaMask);
-    }
-    
-    if (window.ethereum.isMetaMask) {
-      return window.ethereum;
-    }
-    
-    return null;
-  };
-
   // Switch to Arc Testnet
   const switchToArcTestnet = async () => {
-    const metamaskProvider = getMetaMaskProvider();
-    if (!metamaskProvider) return;
-
     try {
-      await metamaskProvider.request({
-        method: 'wallet_switchEthereumChain',
-        params: [{ chainId: `0x${ARC_TESTNET_CONFIG.chainId.toString(16)}` }],
-      });
-    } catch (switchError: any) {
-      if (switchError.code === 4902) {
-        try {
-          await metamaskProvider.request({
-            method: 'wallet_addEthereumChain',
-            params: [{
-              chainId: `0x${ARC_TESTNET_CONFIG.chainId.toString(16)}`,
-              chainName: ARC_TESTNET_CONFIG.chainName,
-              rpcUrls: [ARC_TESTNET_CONFIG.rpcUrl],
-              blockExplorerUrls: [ARC_TESTNET_CONFIG.explorer],
-              nativeCurrency: ARC_TESTNET_CONFIG.nativeCurrency,
-            }],
-          });
-        } catch {
-          throw new Error('Failed to add Arc Testnet');
-        }
-      } else {
-        throw switchError;
+      if (switchChainAsync) {
+        await switchChainAsync({ chainId: ARC_TESTNET_CONFIG.chainId });
       }
-    }
-  };
-
-  // Connect wallet
-  const connectWallet = async () => {
-    try {
-      const metamaskProvider = getMetaMaskProvider();
-      
-      if (!metamaskProvider) {
-        alert("Please install MetaMask!");
-        return;
-      }
-
-      await switchToArcTestnet();
-
-      const web3Provider = new BrowserProvider(metamaskProvider);
-      await web3Provider.send("eth_requestAccounts", []);
-      
-      const signer = await web3Provider.getSigner();
-      const address = await signer.getAddress();
-
-      setUserAddress(address);
-    } catch {
-      console.error('Connection Failed:', error);
-      setError('Failed to connect wallet');
+    } catch (error) {
+      console.error('Failed to switch network:', error);
+      throw error;
     }
   };
 
@@ -199,10 +130,9 @@ export default function RequestsPage() {
     setError(null);
     
     try {
-      const metamaskProvider = getMetaMaskProvider();
-      if (!metamaskProvider) throw new Error("MetaMask not found");
+      if (!walletClient) throw new Error("Wallet not connected");
 
-      const web3Provider = new BrowserProvider(metamaskProvider);
+      const web3Provider = new BrowserProvider(walletClient as any);
       const signer = await web3Provider.getSigner();
 
       const usdcContract = new Contract(
@@ -320,21 +250,16 @@ export default function RequestsPage() {
       )}
 
       {/* Wallet Not Connected */}
-      {!userAddress && (
+      {!isConnected && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Wallet className="w-12 h-12 text-gray-300 mx-auto mb-4" />
           <p className="text-gray-500 mb-4">Connect your wallet to get started</p>
-          <button
-            onClick={connectWallet}
-            className="mt-4 bg-linear-to-r from-purple-600 to-pink-600 text-white font-semibold py-3 px-6 rounded-lg hover:shadow-lg transition-all"
-          >
-            Connect MetaMask
-          </button>
+          <p className="text-sm text-gray-400">Use the &quot;Connect Wallet&quot; button in the top right corner</p>
         </div>
       )}
 
       {/* Main Content */}
-      {userAddress && (
+      {isConnected && userAddress && (
         <>
           {/* User Info Card */}
           <div className="bg-linear-to-r from-purple-600 to-pink-600 rounded-xl p-6 mb-6 text-white">
