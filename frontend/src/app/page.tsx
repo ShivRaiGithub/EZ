@@ -1,9 +1,6 @@
 'use client';
 
 import Link from 'next/link';
-import { PaymentForm } from "@/components/PaymentForm";
-import { ENSLookup } from "@/components/ENSLookup";
-import { PreferencesHelper } from "@/components/PreferencesHelper";
 import { CHAIN_LOGOS } from "@/components/ChainLogos";
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -20,7 +17,12 @@ import {
   DollarSign,
   CircleDollarSign,
   Lock,
-  Timer
+  Timer,
+  RefreshCw,
+  Users,
+  Inbox,
+  User,
+  Layers
 } from 'lucide-react';
 
 export default function Home() {
@@ -51,82 +53,142 @@ export default function Home() {
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200 mb-8">
               <Sparkles className="w-4 h-4 text-indigo-500" />
-              <span className="text-sm text-indigo-600 font-medium">Powered by Arc + ENS</span>
+              <span className="text-sm text-indigo-600 font-medium">Powered by Arc + Circle CCTP + ENS</span>
             </div>
 
             <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-gray-900">
-              Pay anyone on
+              The Complete
               <br />
-              <span className="logo-gradient">their preferred chain</span>
+              <span className="logo-gradient">Crypto Payments Suite</span>
             </h2>
 
             <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-              Simply enter an ENS name. We automatically route your payment to their
-              preferred chain and token using Arc&apos;s economic infrastructure.
+              Cross-chain transfers, recurring payments, payment requests, and contacts
+              all powered by Arc&apos;s USDC-native infrastructure.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
-              <a href="#payment" className="btn-primary text-lg px-8 py-4">
+              <Link href="/cross-chain" className="btn-primary text-lg px-8 py-4">
                 <Send className="w-5 h-5 mr-2" />
                 Start Paying
-              </a>
-              <a href="#lookup" className="btn-secondary text-lg px-8 py-4">
+              </Link>
+              <Link href="/ens" className="btn-secondary text-lg px-8 py-4">
                 <Search className="w-5 h-5 mr-2" />
                 Lookup ENS
-              </a>
+              </Link>
             </div>
           </div>
         </div>
       </section>
 
-      {/* How It Works */}
+      {/* Main Features Grid */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Seamless payments made simple
+              Everything you need for crypto payments
             </h3>
+            <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
+              A complete suite of payment tools built for the multi-chain future
+            </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="feature-card">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6">
-                <span className="text-2xl font-bold text-indigo-600">1</span>
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {/* Cross-Chain */}
+            <Link href="/cross-chain" className="feature-card group cursor-pointer hover:border-indigo-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Layers className="w-7 h-7 text-indigo-600" />
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-3">
-                Receiver Sets Preferences
+                Cross-Chain Payments
               </h4>
               <p className="text-gray-600">
-                Set your preferred chain and token in your ENS profile using text records.
-                One-time setup, works forever.
+                Send USDC across Ethereum, Base, Arbitrum, Optimism, and Polygon via Circle CCTP.
               </p>
-            </div>
+              <div className="mt-4 text-indigo-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
 
-            <div className="feature-card">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6">
-                <span className="text-2xl font-bold text-indigo-600">2</span>
+            {/* Auto Pay */}
+            <Link href="/autopay" className="feature-card group cursor-pointer hover:border-green-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-green-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <RefreshCw className="w-7 h-7 text-green-600" />
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-3">
-                Sender Pays Easily
+                Auto Payments
               </h4>
               <p className="text-gray-600">
-                Pay with USDC on Arc. Stablecoin-native gas means predictable,
-                low-cost transactions.
+                Set up recurring payments with smart contract wallets. Fund, withdraw, pause anytime.
               </p>
-            </div>
+              <div className="mt-4 text-green-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
 
-            <div className="feature-card">
-              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6">
-                <span className="text-2xl font-bold text-indigo-600">3</span>
+            {/* Payment Requests */}
+            <Link href="/requests" className="feature-card group cursor-pointer hover:border-purple-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-purple-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Inbox className="w-7 h-7 text-purple-600" />
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-3">
-                Instant Settlement
+                Payment Requests
               </h4>
               <p className="text-gray-600">
-                Arc delivers sub-second finality. Your payment settles instantly
-                with enterprise-grade reliability.
+                Request payments from anyone. Accept or reject incoming requests easily.
               </p>
-            </div>
+              <div className="mt-4 text-purple-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+
+            {/* Contacts */}
+            <Link href="/contacts" className="feature-card group cursor-pointer hover:border-blue-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Users className="w-7 h-7 text-blue-600" />
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                Contacts
+              </h4>
+              <p className="text-gray-600">
+                Save frequently used addresses with friendly names for quick payments.
+              </p>
+              <div className="mt-4 text-blue-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+
+            {/* ENS Lookup */}
+            <Link href="/ens" className="feature-card group cursor-pointer hover:border-amber-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <Globe2 className="w-7 h-7 text-amber-600" />
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                ENS Lookup
+              </h4>
+              <p className="text-gray-600">
+                Resolve ENS names and view payment preferences set via text records.
+              </p>
+              <div className="mt-4 text-amber-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+
+            {/* Profile */}
+            <Link href="/profile" className="feature-card group cursor-pointer hover:border-rose-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-rose-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <User className="w-7 h-7 text-rose-600" />
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                Profile & History
+              </h4>
+              <p className="text-gray-600">
+                View balances across chains and complete transaction history with filters.
+              </p>
+              <div className="mt-4 text-rose-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
           </div>
         </div>
       </section>
@@ -136,8 +198,11 @@ export default function Home() {
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
-              The Economic OS for the internet
+              Powered by Arc — The Economic OS
             </h3>
+            <p className="text-gray-600 mt-4">
+              Circle&apos;s L1 blockchain designed for enterprise payments
+            </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-6">
@@ -159,8 +224,8 @@ export default function Home() {
               <div className="w-14 h-14 mx-auto rounded-xl bg-purple-100 flex items-center justify-center mb-4">
                 <Lock className="w-7 h-7 text-purple-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">Private</p>
-              <p className="text-gray-600 mt-2">Opt-in configurable privacy for compliance</p>
+              <p className="text-2xl font-bold text-gray-900">Enterprise Ready</p>
+              <p className="text-gray-600 mt-2">Built for compliance and reliability</p>
             </div>
           </div>
         </div>
@@ -197,97 +262,64 @@ export default function Home() {
           </div>
 
           <p className="mt-8 text-gray-500 text-sm">
-            Connected via CCTP and Gateway for global liquidity
+            Connected via Circle CCTP for seamless cross-chain transfers
           </p>
         </div>
       </section>
 
-      {/* Main App Section */}
-      <section id="payment" className="py-20 px-4 sm:px-6 lg:px-8">
+      {/* How It Works */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
+          <div className="text-center mb-16">
             <h3 className="text-3xl md:text-4xl font-bold text-gray-900">
-              Ready to pay?
+              How it works
             </h3>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-8 max-w-5xl mx-auto">
-            <PaymentForm />
-            <div id="lookup">
-              <ENSLookup />
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="feature-card">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6">
+                <span className="text-2xl font-bold text-indigo-600">1</span>
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                Connect Wallet
+              </h4>
+              <p className="text-gray-600">
+                Connect your MetaMask or any Web3 wallet to get started.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6">
+                <span className="text-2xl font-bold text-indigo-600">2</span>
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                Choose Feature
+              </h4>
+              <p className="text-gray-600">
+                Send cross-chain, set up auto payments, request money, or manage contacts.
+              </p>
+            </div>
+
+            <div className="feature-card">
+              <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6">
+                <span className="text-2xl font-bold text-indigo-600">3</span>
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                Instant Settlement
+              </h4>
+              <p className="text-gray-600">
+                Payments settle with sub-second finality on Arc&apos;s enterprise infrastructure.
+              </p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Preferences Helper */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-3xl mx-auto">
-          <PreferencesHelper />
-        </div>
-      </section>
-
-      {/* Features Grid */}
+      {/* Additional Features */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-2 gap-8">
-            <div className="feature-card">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-indigo-100 flex items-center justify-center">
-                  <Globe2 className="w-6 h-6 text-indigo-600" />
-                </div>
-                <h4 className="text-xl font-semibold text-gray-900">Powered by ENS</h4>
-              </div>
-              <ul className="space-y-3 text-gray-600">
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-indigo-500" />
-                  Decentralized payment preferences
-                </li>
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-indigo-500" />
-                  Human-readable addresses
-                </li>
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-indigo-500" />
-                  User-controlled settings
-                </li>
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-indigo-500" />
-                  No centralized database needed
-                </li>
-              </ul>
-            </div>
-
-            <div className="feature-card">
-              <div className="flex items-center gap-4 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-purple-600" />
-                </div>
-                <h4 className="text-xl font-semibold text-gray-900">Powered by Arc</h4>
-              </div>
-              <ul className="space-y-3 text-gray-600">
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-purple-500" />
-                  USDC-native gas fees
-                </li>
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-purple-500" />
-                  Sub-second finality
-                </li>
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-purple-500" />
-                  Enterprise-grade reliability
-                </li>
-                <li className="flex items-center gap-2">
-                  <ArrowRight className="w-4 h-4 text-purple-500" />
-                  Global liquidity via CCTP
-                </li>
-              </ul>
-            </div>
-          </div>
-
-          {/* Additional Features Row */}
-          <div className="grid md:grid-cols-3 gap-6 mt-8">
+          <div className="grid md:grid-cols-3 gap-6">
             <div className="feature-card text-center">
               <div className="w-14 h-14 mx-auto rounded-xl bg-green-100 flex items-center justify-center mb-4">
                 <Shield className="w-7 h-7 text-green-600" />
@@ -313,20 +345,33 @@ export default function Home() {
         </div>
       </section>
 
+      {/* CTA Section */}
+      <section className="py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto text-center">
+          <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-6">
+            Ready to simplify your crypto payments?
+          </h3>
+          <p className="text-lg text-gray-600 mb-8">
+            Join the future of cross-chain payments with EZ
+          </p>
+          <Link href="/cross-chain" className="btn-primary text-lg px-10 py-4">
+            Launch App
+            <ArrowRight className="w-5 h-5 ml-2" />
+          </Link>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t border-gray-200 py-12 px-4 sm:px-6 lg:px-8 bg-white">
         <div className="max-w-7xl mx-auto text-center">
           <div className="flex items-center justify-center gap-3 mb-4">
-            <div className="w-8 h-8 rounded-lg bg-linear-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-              <Zap className="w-4 h-4 text-white" />
-            </div>
-            <span className="text-lg font-bold logo-gradient">EZ</span>
+            <Logo width={100} height={30} />
           </div>
           <p className="text-gray-600 mb-2">
-            Built on Arc + ENS 🚀
+            Built on Arc + Circle CCTP + ENS 🚀
           </p>
           <p className="text-sm text-gray-500">
-            The Economic OS for seamless crypto payments
+            The complete crypto payments suite
           </p>
         </div>
       </footer>
