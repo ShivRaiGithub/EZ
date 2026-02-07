@@ -32,8 +32,13 @@ interface ChainConfig {
 
 interface ChainConfigs {
   sepolia: ChainConfig;
-  base: ChainConfig;
-  arc: ChainConfig;
+  arbitrumSepolia: ChainConfig;
+  optimismSepolia: ChainConfig;
+  baseSepolia: ChainConfig;
+  polygonAmoy: ChainConfig;
+  arcTestnet: ChainConfig;
+  base?: ChainConfig;
+  arc?: ChainConfig;
 }
 
 type ChainKey = keyof ChainConfigs;
@@ -91,13 +96,31 @@ const CHAINS: ChainConfigs = {
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
     explorer: "https://sepolia.etherscan.io",
   },
-  base: {
+  arbitrumSepolia: {
+    name: "Arbitrum Sepolia",
+    rpc: "https://sepolia-rollup.arbitrum.io/rpc",
+    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
+    explorer: "https://sepolia.arbiscan.io",
+  },
+  optimismSepolia: {
+    name: "Optimism Sepolia",
+    rpc: "https://sepolia.optimism.io",
+    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
+    explorer: "https://sepolia-optimism.etherscan.io",
+  },
+  baseSepolia: {
     name: "Base Sepolia",
     rpc: "https://sepolia.base.org",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
     explorer: "https://sepolia.basescan.org",
   },
-  arc: {
+  polygonAmoy: {
+    name: "Polygon Amoy",
+    rpc: "https://rpc-amoy.polygon.technology",
+    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
+    explorer: "https://amoy.polygonscan.com",
+  },
+  arcTestnet: {
     name: "Arc Testnet",
     rpc: "https://rpc.testnet.arc.network",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",

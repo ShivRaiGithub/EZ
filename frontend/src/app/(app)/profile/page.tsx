@@ -5,60 +5,8 @@ import { User, Wallet, History, ChevronDown, ExternalLink, Copy, CheckCircle2, X
 import { CHAIN_LOGOS } from '@/components/ChainLogos';
 import { BrowserProvider, Contract, formatUnits } from 'ethers';
 import { fetchUserTransactions, getExplorerUrl, FormattedTransaction } from '@/lib/transaction-utils';
-
-// Chain configurations (Testnets)
-const CHAINS = {
-  sepolia: {
-    name: 'Ethereum Sepolia',
-    chainId: 11155111,
-    rpc: 'https://sepolia.drpc.org',
-    usdc: '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238',
-    explorer: 'https://sepolia.etherscan.io',
-    nativeSymbol: 'ETH',
-  },
-  arbitrumSepolia: {
-    name: 'Arbitrum Sepolia',
-    chainId: 421614,
-    rpc: 'https://sepolia-rollup.arbitrum.io/rpc',
-    usdc: '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d',
-    explorer: 'https://sepolia.arbiscan.io',
-    nativeSymbol: 'ETH',
-  },
-  optimismSepolia: {
-    name: 'Optimism Sepolia',
-    chainId: 11155420,
-    rpc: 'https://sepolia.optimism.io',
-    usdc: '0x5fd84259d66Cd46123540766Be93DFE6D43130D7',
-    explorer: 'https://sepolia-optimism.etherscan.io',
-    nativeSymbol: 'ETH',
-  },
-  baseSepolia: {
-    name: 'Base Sepolia',
-    chainId: 84532,
-    rpc: 'https://sepolia.base.org',
-    usdc: '0x3600000000000000000000000000000000000000',
-    explorer: 'https://sepolia.basescan.org',
-    nativeSymbol: 'ETH',
-  },
-  polygonAmoy: {
-    name: 'Polygon Amoy',
-    chainId: 80002,
-    rpc: 'https://rpc-amoy.polygon.technology',
-    usdc: '0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582',
-    explorer: 'https://amoy.polygonscan.com',
-    nativeSymbol: 'MATIC',
-  },
-  arc: {
-    name: 'Arc Testnet',
-    chainId: 5042002,
-    rpc: 'https://rpc.testnet.arc.network',
-    usdc: '0x3600000000000000000000000000000000000000',
-    explorer: 'https://testnet.arcscan.app',
-    nativeSymbol: 'ETH',
-  },
-} as const;
-
-type ChainKey = keyof typeof CHAINS;
+import { CHAINS, type ChainKey } from '@/lib/config';
+import { useAccount } from 'wagmi';
 
 const ERC20_ABI = [
   'function balanceOf(address account) view returns (uint256)',
@@ -72,17 +20,10 @@ interface ChainBalance {
   isLoading: boolean;
 }
 
-// Type for MetaMask provider
-interface MetaMaskProvider {
-  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-  isMetaMask?: boolean;
-  on?: (event: string, callback: (...args: any[]) => void) => void;
-  removeListener?: (event: string, callback: (...args: any[]) => void) => void;
-}
-
 export default function ProfilePage() {
-  const [userAddress, setUserAddress] = useState<string>('');
-  const [selectedChain, setSelectedChain] = useState<ChainKey>('arc');
+  // Use wagmi hooks for wallet connection
+  const { address: userAddress, isConnected } = useAccount();
+  const [selectedChain, setSelectedChain] = useState<ChainKey>('arcTestnet');
   const [isChainDropdownOpen, setIsChainDropdownOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [chainBalances, setChainBalances] = useState<Record<ChainKey, ChainBalance>>({} as any);
@@ -90,54 +31,6 @@ export default function ProfilePage() {
   const [isLoadingTransactions, setIsLoadingTransactions] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [selectedTxFilter, setSelectedTxFilter] = useState<'all' | 'auto-pay' | 'cross-chain' | 'arc-testnet'>('all');
-
-  // Get MetaMask provider
-  const getMetaMaskProvider = (): MetaMaskProvider | null => {
-    if (typeof window === 'undefined' || !window.ethereum) return null;
-    const eth = window.ethereum as any;
-    if (eth.providers) {
-      const provider = eth.providers.find((p: any) => p.isMetaMask);
-      return provider as MetaMaskProvider | null;
-    }
-    if (eth.isMetaMask) {
-      return eth as MetaMaskProvider;
-    }
-    return null;
-  };
-
-  // Connect wallet
-  const connectWallet = async () => {
-    try {
-      const metamaskProvider = getMetaMaskProvider();
-      if (!metamaskProvider) {
-        alert('Please install MetaMask!');
-        return;
-      }
-
-      const web3Provider = new BrowserProvider(metamaskProvider);
-      await web3Provider.send('eth_requestAccounts', []);
-      const signer = await web3Provider.getSigner();
-      const address = await signer.getAddress();
-
-      setUserAddress(address);
-
-      // Fetch balances for all chains
-      await fetchAllBalances(address);
-
-      // Fetch transaction history
-      await fetchTransactionHistory(address);
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-      alert('Failed to connect wallet');
-    }
-  };
-
-  // Disconnect wallet
-  const disconnectWallet = () => {
-    setUserAddress('');
-    setChainBalances({} as any);
-    setTransactions([]);
-  };
 
   // Fetch balance for a specific chain
   const fetchChainBalance = async (chainKey: ChainKey, address: string) => {
@@ -243,6 +136,14 @@ export default function ProfilePage() {
     setIsRefreshing(false);
   };
 
+  // Reset state when disconnected
+  useEffect(() => {
+    if (!isConnected) {
+      setChainBalances({} as any);
+      setTransactions([]);
+    }
+  }, [isConnected]);
+
   // Copy address
   const copyAddress = () => {
     if (!userAddress) return;
@@ -251,54 +152,13 @@ export default function ProfilePage() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  // Listen for account changes
+  // Fetch data when wallet connects or address changes
   useEffect(() => {
-    const metamaskProvider = getMetaMaskProvider();
-    if (!metamaskProvider || !metamaskProvider.on) return;
-
-    const handleAccountsChanged = (accounts: string[]) => {
-      if (accounts.length === 0) {
-        disconnectWallet();
-      } else if (accounts[0] !== userAddress) {
-        setUserAddress(accounts[0]);
-        fetchAllBalances(accounts[0]);
-        fetchTransactionHistory(accounts[0]);
-      }
-    };
-
-    metamaskProvider.on('accountsChanged', handleAccountsChanged);
-
-    return () => {
-      if (metamaskProvider.removeListener) {
-        metamaskProvider.removeListener('accountsChanged', handleAccountsChanged);
-      }
-    };
-  }, [userAddress]);
-
-  // Auto-connect on mount if previously connected
-  useEffect(() => {
-    const checkConnection = async () => {
-      const metamaskProvider = getMetaMaskProvider();
-      if (!metamaskProvider) return;
-
-      try {
-        const web3Provider = new BrowserProvider(metamaskProvider);
-        const accounts = await web3Provider.send('eth_accounts', []);
-
-        if (accounts && (accounts as string[]).length > 0) {
-          const signer = await web3Provider.getSigner();
-          const address = await signer.getAddress();
-          setUserAddress(address);
-          await fetchAllBalances(address);
-          await fetchTransactionHistory(address);
-        }
-      } catch (error) {
-        console.error('Error checking connection:', error);
-      }
-    };
-
-    checkConnection();
-  }, []);
+    if (isConnected && userAddress) {
+      fetchAllBalances(userAddress);
+      fetchTransactionHistory(userAddress);
+    }
+  }, [isConnected, userAddress]);
 
   const balance = chainBalances[selectedChain] || {
     usdc: '0.00',
@@ -332,7 +192,7 @@ export default function ProfilePage() {
       {!userAddress && (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center mb-6">
           <p className="text-gray-700 text-lg mb-2">Connect your wallet to view your profile</p>
-          <p className="text-gray-500 text-sm">Use the "Connect Wallet" button in the top right corner</p>
+          <p className="text-gray-500 text-sm">Use the &quot;Connect Wallet&quot; button in the top right corner</p>
         </div>
       )}
 
@@ -361,12 +221,6 @@ export default function ProfilePage() {
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
                 </button>
-                <button
-                  onClick={disconnectWallet}
-                  className="px-3 py-1.5 bg-white/10 rounded-lg text-sm hover:bg-white/20 transition-colors"
-                >
-                  Disconnect
-                </button>
               </div>
             </div>
 
@@ -383,7 +237,7 @@ export default function ProfilePage() {
                 onClick={() => setIsChainDropdownOpen(!isChainDropdownOpen)}
                 className="flex items-center gap-3 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition-colors w-full"
               >
-                <LogoComponent className="w-6 h-6" />
+                {/* <LogoComponent className="w-6 h-6" /> */}
                 <span className="font-medium flex-1 text-left">{CHAINS[selectedChain].name}</span>
                 <ChevronDown className={`w-4 h-4 transition-transform ${isChainDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
@@ -404,7 +258,7 @@ export default function ProfilePage() {
                         className={`flex items-center gap-3 px-4 py-3 w-full hover:bg-gray-50 transition-colors ${selectedChain === chainKey ? 'bg-indigo-50' : ''
                           }`}
                       >
-                        <ChainLogo className="w-6 h-6" />
+                        {/* <ChainLogo className="w-6 h-6" /> */}
                         <div className="flex-1 text-left">
                           <div className="text-gray-900 font-medium">{chain.name}</div>
                           {chainBalance && !chainBalance.isLoading && (

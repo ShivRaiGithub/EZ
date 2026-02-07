@@ -11,12 +11,12 @@ const SEPOLIA_PUBLIC_RESOLVER = '0x8FADE66B79cC9f707aB26799354482EB93a5B7dD';
 // Chain mapping for preferences
 const CHAIN_PREFERENCE_MAP: Record<string, string> = {
     'sepolia': 'sepolia',
-    'ethereum': 'sepolia',
-    'base': 'base',
-    'arc': 'arc',
-    'optimism': 'optimism-sepolia',
-    'arbitrum': 'arbitrum-sepolia',
-    'polygon': 'polygon-amoy',
+    'ethereumsepolia': 'sepolia',
+    'basesepolia': 'base sepolia',
+    'arctestnet': 'arctestnet',
+    'optimismsepolia': 'optimism sepolia',
+    'arbitrumsepolia': 'arbitrum sepolia',
+    'polygonamoy': 'polygon amoy',
 };
 
 // Mock ENS data for demo purposes (fallback)
@@ -77,7 +77,7 @@ export function useENSLookup(ensNameOrAddress: string | undefined) {
                         const resolver = await provider.getResolver(ensNameOrAddress);
                         if (resolver) {
                             try {
-                                const chainText = await resolver.getText('chain');
+                                const chainText = await resolver.getText('preferred_chain');
                                 if (chainText && CHAIN_PREFERENCE_MAP[chainText.toLowerCase()]) {
                                     preferredChain = CHAIN_PREFERENCE_MAP[chainText.toLowerCase()];
                                 }
@@ -86,13 +86,7 @@ export function useENSLookup(ensNameOrAddress: string | undefined) {
                             }
                         }
                     }
-                } catch (err) {
-                    // Try mock data as fallback
-                    const mockProfile = MOCK_ENS_DATA[ensNameOrAddress.toLowerCase()];
-                    if (mockProfile) {
-                        setProfile(mockProfile);
-                        return;
-                    }
+                } catch {
                     throw new Error('Could not resolve ENS name on Sepolia testnet');
                 }
             } else if (ensNameOrAddress.startsWith('0x')) {

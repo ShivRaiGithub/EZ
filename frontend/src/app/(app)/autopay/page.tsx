@@ -5,23 +5,9 @@ import { RefreshCw, Plus, Settings, History, Loader2, CheckCircle2, Trash2, Paus
 import { autopaymentApi } from '@/lib/api';
 import { BrowserProvider, Contract, parseUnits, formatUnits } from 'ethers';
 import { AutoPayFactoryABI, AutoPayWalletABI, ERC20_ABI } from '@/lib/contracts';
-import { CONTRACT_ADDRESSES, ARC_TESTNET_CONFIG } from '@/lib/config';
-import { useAccount } from 'wagmi';
+import { CONTRACT_ADDRESSES, ARC_TESTNET_CONFIG, CHAINS } from '@/lib/config';
+import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { AddressInput } from '@/components/AddressInput';
-
-// Extend Window interface for MetaMask
-declare global {
-    interface Window {
-        ethereum?: {
-            request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-            isMetaMask?: boolean;
-            providers?: Array<{
-                request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
-                isMetaMask?: boolean;
-            }>;
-        };
-    }
-}
 
 interface AutoPayment {
     _id: string;
@@ -46,8 +32,10 @@ interface PaymentHistory {
 }
 
 export default function AutoPayPage() {
-    // Use wagmi hook for wallet connection
+    // Use wagmi hooks for wallet connection
     const { address: userAddress, isConnected } = useAccount();
+    const { data: walletClient } = useWalletClient();
+    const { switchChainAsync } = useSwitchChain();
 
     const [walletAddress, setWalletAddress] = useState<string>('');
     const [walletBalance, setWalletBalance] = useState<string>('0');
@@ -63,6 +51,7 @@ export default function AutoPayPage() {
     const [paymentHistory, setPaymentHistory] = useState<PaymentHistory[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isFetching, setIsFetching] = useState(false);
+    const [isCheckingWallet, setIsCheckingWallet] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -71,26 +60,11 @@ export default function AutoPayPage() {
         setRecipient(address || '');
         // Auto-set destination chain if ENS has a preference
         if (preferredChain && address) {
-            const validChains = ['sepolia', 'base', 'arc'];
+            const validChains = Object.keys(CHAINS);
             if (validChains.includes(preferredChain)) {
                 setDestinationChain(preferredChain);
             }
         }
-    };
-
-    // Get MetaMask provider specifically
-    const getMetaMaskProvider = () => {
-        if (!window.ethereum) return null;
-
-        if (window.ethereum.providers) {
-            return window.ethereum.providers.find(provider => provider.isMetaMask);
-        }
-
-        if (window.ethereum.isMetaMask) {
-            return window.ethereum;
-        }
-
-        return null;
     };
 
     const getExplorerUrl = (chain: string, txHash: string) => {
@@ -106,58 +80,31 @@ export default function AutoPayPage() {
         return `${explorers[chain] || explorers.arc}/tx/${txHash}`;
     };
 
-    // Switch to Arc Testnet
-    const switchToArcTestnet = async () => {
-        const metamaskProvider = getMetaMaskProvider();
-        if (!metamaskProvider) return;
-
-        try {
-            await metamaskProvider.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: `0x${ARC_TESTNET_CONFIG.chainId.toString(16)}` }],
-            });
-        } catch (switchError: any) {
-            // Chain not added, add it
-            if (switchError.code === 4902) {
-                try {
-                    await metamaskProvider.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{
-                            chainId: `0x${ARC_TESTNET_CONFIG.chainId.toString(16)}`,
-                            chainName: ARC_TESTNET_CONFIG.chainName,
-                            rpcUrls: [ARC_TESTNET_CONFIG.rpcUrl],
-                            blockExplorerUrls: [ARC_TESTNET_CONFIG.explorer],
-                            nativeCurrency: ARC_TESTNET_CONFIG.nativeCurrency,
-                        }],
-                    });
-                } catch {
-                    throw new Error('Failed to add Arc Testnet');
-                }
-            } else {
-                throw switchError;
-            }
-        }
-    };
-
     // Auto-check wallet contract when connected via wagmi
     useEffect(() => {
-        if (isConnected && userAddress) {
+        if (isConnected && userAddress && walletClient) {
+            setIsCheckingWallet(true);
             checkWalletContract(userAddress);
+        } else if (isConnected && userAddress && !walletClient) {
+            // Still waiting for walletClient to be ready
+            setIsCheckingWallet(true);
         } else {
             // Reset state when disconnected
             setWalletAddress('');
             setWalletBalance('0');
             setUsdcBalance('0');
+            setIsCheckingWallet(false);
         }
-    }, [isConnected, userAddress]);
+    }, [isConnected, userAddress, walletClient]);
 
     // Check if user has a wallet contract
     const checkWalletContract = async (address: string) => {
         try {
-            const metamaskProvider = getMetaMaskProvider();
-            if (!metamaskProvider) return;
+            if (!walletClient) {
+                return;
+            }
 
-            const web3Provider = new BrowserProvider(metamaskProvider);
+            const web3Provider = new BrowserProvider(walletClient as any);
             const signer = await web3Provider.getSigner();
 
             const factoryContract = new Contract(
@@ -174,6 +121,8 @@ export default function AutoPayPage() {
             }
         } catch (error) {
             console.error('Error checking wallet contract:', error);
+        } finally {
+            setIsCheckingWallet(false);
         }
     };
 
@@ -183,12 +132,14 @@ export default function AutoPayPage() {
         setError(null);
 
         try {
-            const metamaskProvider = getMetaMaskProvider();
-            if (!metamaskProvider) {
-                throw new Error("MetaMask not found");
+            if (!walletClient) {
+                throw new Error("Wallet not connected");
             }
 
-            const web3Provider = new BrowserProvider(metamaskProvider);
+            // Switch to Arc Testnet
+            await switchChainAsync?.({ chainId: ARC_TESTNET_CONFIG.chainId });
+
+            const web3Provider = new BrowserProvider(walletClient as any);
             const signer = await web3Provider.getSigner();
 
             const factoryContract = new Contract(
@@ -220,10 +171,9 @@ export default function AutoPayPage() {
     // Set relayer in wallet
     const setRelayerInWallet = async (walletAddr: string) => {
         try {
-            const metamaskProvider = getMetaMaskProvider();
-            if (!metamaskProvider) return;
+            if (!walletClient) return;
 
-            const web3Provider = new BrowserProvider(metamaskProvider);
+            const web3Provider = new BrowserProvider(walletClient as any);
             const signer = await web3Provider.getSigner();
 
             const walletContract = new Contract(
@@ -248,10 +198,9 @@ export default function AutoPayPage() {
     // Fetch wallet balance
     const fetchWalletBalance = async (walletAddr: string) => {
         try {
-            const metamaskProvider = getMetaMaskProvider();
-            if (!metamaskProvider) return;
+            if (!walletClient) return;
 
-            const web3Provider = new BrowserProvider(metamaskProvider);
+            const web3Provider = new BrowserProvider(walletClient as any);
             const signer = await web3Provider.getSigner();
             const signerAddress = await signer.getAddress();
 
@@ -289,10 +238,12 @@ export default function AutoPayPage() {
         setError(null);
 
         try {
-            const metamaskProvider = getMetaMaskProvider();
-            if (!metamaskProvider) throw new Error("MetaMask not found");
+            if (!walletClient) throw new Error("Wallet not connected");
 
-            const web3Provider = new BrowserProvider(metamaskProvider);
+            // Switch to Arc Testnet
+            await switchChainAsync?.({ chainId: ARC_TESTNET_CONFIG.chainId });
+
+            const web3Provider = new BrowserProvider(walletClient as any);
             const signer = await web3Provider.getSigner();
 
             const amountInSubunits = parseUnits(fundAmount, 6);
@@ -339,10 +290,12 @@ export default function AutoPayPage() {
         setError(null);
 
         try {
-            const metamaskProvider = getMetaMaskProvider();
-            if (!metamaskProvider) throw new Error("MetaMask not found");
+            if (!walletClient) throw new Error("Wallet not connected");
 
-            const web3Provider = new BrowserProvider(metamaskProvider);
+            // Switch to Arc Testnet
+            await switchChainAsync?.({ chainId: ARC_TESTNET_CONFIG.chainId });
+
+            const web3Provider = new BrowserProvider(walletClient as any);
             const signer = await web3Provider.getSigner();
 
             const walletContract = new Contract(
@@ -403,11 +356,9 @@ export default function AutoPayPage() {
         }
     };
 
-    const chains = [
-        { id: 'sepolia', name: 'Ethereum Sepolia' },
-        { id: 'base', name: 'Base Sepolia' },
-        { id: 'arc', name: 'Arc Testnet' },
-    ];
+    // Generate chains array from CHAINS config for UI
+    const chains = Object.entries(CHAINS)
+        .map(([key, value]) => ({ id: key, name: value.name }));
 
     const frequencies = [
         { id: 'minute', name: 'Minute (Testing)' },
@@ -438,10 +389,12 @@ export default function AutoPayPage() {
                 const paymentId = response.data.autoPayment._id;
 
                 // Add to smart contract
-                const metamaskProvider = getMetaMaskProvider();
-                if (!metamaskProvider) throw new Error("MetaMask not found");
+                if (!walletClient) throw new Error("Wallet not connected");
 
-                const web3Provider = new BrowserProvider(metamaskProvider);
+                // Switch to Arc Testnet
+                await switchChainAsync?.({ chainId: ARC_TESTNET_CONFIG.chainId });
+
+                const web3Provider = new BrowserProvider(walletClient as any);
                 const signer = await web3Provider.getSigner();
 
                 const walletContract = new Contract(
@@ -483,26 +436,9 @@ export default function AutoPayPage() {
         const newStatus = payment.status === 'active' ? 'paused' : 'active';
 
         try {
-            // Update in database
+            // Only update in database - do NOT interact with contract
+            // Pausing/unpausing only affects the scheduler, not the contract
             await autopaymentApi.updateStatus(id, newStatus);
-
-            // Cancel in contract if pausing
-            if (newStatus === 'paused' && walletAddress) {
-                const metamaskProvider = getMetaMaskProvider();
-                if (!metamaskProvider) throw new Error("MetaMask not found");
-
-                const web3Provider = new BrowserProvider(metamaskProvider);
-                const signer = await web3Provider.getSigner();
-
-                const walletContract = new Contract(
-                    walletAddress,
-                    AutoPayWalletABI,
-                    signer
-                );
-
-                const tx = await walletContract.cancelAutoPayment(id);
-                await tx.wait();
-            }
 
             await fetchAutoPayments();
             setSuccessMessage(`Payment ${newStatus === 'active' ? 'resumed' : 'paused'}`);
@@ -515,11 +451,11 @@ export default function AutoPayPage() {
     const deletePayment = async (id: string) => {
         try {
             // Cancel in contract first
-            if (walletAddress) {
-                const metamaskProvider = getMetaMaskProvider();
-                if (!metamaskProvider) throw new Error("MetaMask not found");
+            if (walletAddress && walletClient) {
+                // Switch to Arc Testnet
+                await switchChainAsync?.({ chainId: ARC_TESTNET_CONFIG.chainId });
 
-                const web3Provider = new BrowserProvider(metamaskProvider);
+                const web3Provider = new BrowserProvider(walletClient as any);
                 const signer = await web3Provider.getSigner();
 
                 const walletContract = new Contract(
@@ -592,8 +528,17 @@ export default function AutoPayPage() {
                 </div>
             )}
 
+            {/* Checking for wallet contract */}
+            {userAddress && isCheckingWallet && (
+                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
+                    <Loader2 className="w-12 h-12 text-gray-300 mx-auto mb-4 animate-spin" />
+                    <p className="text-gray-700 text-lg mb-2">Checking for wallet contract...</p>
+                    <p className="text-gray-500 text-sm">Please wait while we verify your setup</p>
+                </div>
+            )}
+
             {/* Connected but no wallet contract */}
-            {userAddress && !walletAddress && (
+            {userAddress && !walletAddress && !isCheckingWallet && (
                 <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
                     <DollarSign className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                     <p className="text-gray-900 font-semibold mb-2">Create Your Smart Contract Wallet</p>

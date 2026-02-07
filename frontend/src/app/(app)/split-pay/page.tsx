@@ -4,42 +4,9 @@ import { useState, useEffect } from 'react';
 import { BrowserProvider, ethers } from 'ethers';
 import { Users, Plus, X, Loader2, AlertCircle } from 'lucide-react';
 import { api, paymentHistoryApi, paymentRequestApi } from '@/lib/api';
-import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';import { AddressInput } from '@/components/AddressInput';
-// Chain configurations
-const CHAINS = {
-  sepolia: {
-    name: "Ethereum Sepolia",
-    chainId: 11155111,
-    rpc: "https://sepolia.drpc.org",
-    domain: 0,
-    usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
-    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://sepolia.etherscan.io",
-  },
-  base: {
-    name: "Base Sepolia",
-    chainId: 84532,
-    rpc: "https://sepolia.base.org",
-    domain: 6,
-    usdc: "0x3600000000000000000000000000000000000000",
-    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
-    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://sepolia.basescan.org",
-  },
-  arc: {
-    name: "Arc Testnet",
-    chainId: 5042002,
-    rpc: "https://rpc.testnet.arc.network",
-    domain: 26,
-    usdc: "0x3600000000000000000000000000000000000000",
-    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
-    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://testnet.arcscan.app",
-  },
-} as const;
-
-type ChainKey = keyof typeof CHAINS;
+import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
+import { AddressInput } from '@/components/AddressInput';
+import { CHAINS, type ChainKey } from '@/lib/config';
 
 // ABIs
 const ERC20_ABI = [
@@ -78,16 +45,18 @@ export default function SplitPayPage() {
   const { switchChainAsync } = useSwitchChain();
 
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
-  const sourceChain: ChainKey = "arc"; // Always Arc as source
+  const sourceChain: ChainKey = "arcTestnet"; // Always Arc as source
   const [destChain, setDestChain] = useState<ChainKey>("sepolia");
   const [recipientInput, setRecipientInput] = useState<string>("");
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [totalAmount, setTotalAmount] = useState<string>("");
   const [splitUsers, setSplitUsers] = useState<string[]>([]);
   const [newSplitUser, setNewSplitUser] = useState<string>("");
+  const [newSplitUserAddress, setNewSplitUserAddress] = useState<string>("");
   const [description, setDescription] = useState<string>("");
   
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [finalResult, setFinalResult] = useState<{
@@ -114,7 +83,14 @@ export default function SplitPayPage() {
     setRecipientAddress(address || '');
     // Auto-set destination chain if ENS has a preference
     if (preferredChain && address) {
-      const validChains: ChainKey[] = ['sepolia', 'base', 'arc'];
+      const validChains: ChainKey[] = [
+        'sepolia',
+        'arbitrumSepolia',
+        'optimismSepolia',
+        'baseSepolia',
+        'polygonAmoy',
+        'arcTestnet',
+      ];;
       if (validChains.includes(preferredChain as ChainKey)) {
         setDestChain(preferredChain as ChainKey);
       }
@@ -161,27 +137,34 @@ export default function SplitPayPage() {
     }
   };
 
+  // Handle resolved split user address
+  const handleResolvedSplitUser = (address: string | null) => {
+    setNewSplitUserAddress(address || '');
+  };
+
   // Add split user
   const handleAddSplitUser = () => {
-    if (!newSplitUser) return;
+    if (!newSplitUserAddress) return;
     
-    if (!ethers.isAddress(newSplitUser)) {
-      alert("Invalid Ethereum address!");
+    if (!ethers.isAddress(newSplitUserAddress)) {
+      setError("Invalid Ethereum address!");
       return;
     }
     
-    if (splitUsers.includes(newSplitUser)) {
-      alert("This address is already in the split list!");
+    if (splitUsers.includes(newSplitUserAddress)) {
+      setError("This address is already in the split list!");
       return;
     }
     
-    if (newSplitUser.toLowerCase() === userAddress?.toLowerCase()) {
-      alert("You are automatically included in the split!");
+    if (newSplitUserAddress.toLowerCase() === userAddress?.toLowerCase()) {
+      setError("You are automatically included in the split!");
       return;
     }
     
-    setSplitUsers([...splitUsers, newSplitUser]);
+    setError(null);
+    setSplitUsers([...splitUsers, newSplitUserAddress]);
     setNewSplitUser("");
+    setNewSplitUserAddress("");
   };
 
   // Remove split user
@@ -272,26 +255,27 @@ export default function SplitPayPage() {
   // Main split payment execution
   const executeSplitPayment = async () => {
     if (!signer || !isConnected || !userAddress) {
-      alert("Please connect your wallet first!");
+      setError("Please connect your wallet first!");
       return;
     }
 
     if (!ethers.isAddress(recipientAddress)) {
-      alert("Invalid recipient address!");
+      setError("Invalid recipient address!");
       return;
     }
 
     if (parseFloat(totalAmount) <= 0) {
-      alert("Invalid amount!");
+      setError("Invalid amount!");
       return;
     }
 
     if (splitUsers.length === 0) {
-      alert("Please add at least one person to split with!");
+      setError("Please add at least one person to split with!");
       return;
     }
 
     setIsProcessing(true);
+    setError(null);
     setLogs([]);
     setSteps([]);
     setFinalResult(null);
@@ -646,6 +630,21 @@ export default function SplitPayPage() {
         </div>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <p className="text-red-700 text-sm">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 text-xs underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Section */}
       {!isConnected && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -728,7 +727,6 @@ export default function SplitPayPage() {
             </label>
             <div className="grid grid-cols-2 gap-4">
               {(Object.keys(CHAINS) as ChainKey[])
-                .filter(key => key !== 'arc')
                 .map((key) => (
                   <button
                     key={key}
@@ -751,24 +749,27 @@ export default function SplitPayPage() {
             <h3 className="font-semibold mb-4">Split With</h3>
             
             {/* Add User Input */}
-            <div className="flex gap-2 mb-4">
-              <input
-                type="text"
-                value={newSplitUser}
-                onChange={(e) => setNewSplitUser(e.target.value)}
-                placeholder="0x... (friend's address)"
-                className="flex-1 px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-green-500 focus:outline-none transition-colors"
-                disabled={isProcessing}
-                onKeyPress={(e) => e.key === 'Enter' && handleAddSplitUser()}
-              />
-              <button
-                onClick={handleAddSplitUser}
-                disabled={isProcessing || !newSplitUser}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add
-              </button>
+            <div className="mb-4">
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <AddressInput
+                    value={newSplitUser}
+                    onChange={setNewSplitUser}
+                    onResolvedAddress={handleResolvedSplitUser}
+                    userAddress={userAddress || ''}
+                    placeholder="0x... or name.eth or contact name"
+                    disabled={isProcessing}
+                  />
+                </div>
+                <button
+                  onClick={handleAddSplitUser}
+                  disabled={isProcessing || !newSplitUserAddress}
+                  className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center gap-2 self-end h-[52px]"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add
+                </button>
+              </div>
             </div>
 
             {/* Split Users List */}
@@ -925,7 +926,7 @@ export default function SplitPayPage() {
                   <div>
                     <span className="font-semibold">Burn Tx: </span>
                     <a
-                      href={`${CHAINS.arc.explorer}/tx/${finalResult.burnTxHash}`}
+                      href={`${CHAINS.arcTestnet.explorer}/tx/${finalResult.burnTxHash}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="text-green-600 hover:underline"

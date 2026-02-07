@@ -86,18 +86,6 @@ export function Sidebar() {
               Home
             </Link>
           </li>
-          <li>
-            <a
-              href="https://docs.arc.network"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="sidebar-link flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-              style={{ color: 'var(--text-secondary)' }}
-            >
-              <FileText className="w-4 h-4" style={{ color: 'var(--text-muted)' }} />
-              Docs
-            </a>
-          </li>
         </ul>
       </nav>
 

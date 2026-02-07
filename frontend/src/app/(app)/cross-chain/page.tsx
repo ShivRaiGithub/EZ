@@ -6,42 +6,7 @@ import { Layers } from 'lucide-react';
 import { api, paymentHistoryApi } from '@/lib/api';
 import { useAccount, useWalletClient, useSwitchChain } from 'wagmi';
 import { AddressInput } from '@/components/AddressInput';
-
-// Chain configurations
-const CHAINS = {
-  sepolia: {
-    name: "Ethereum Sepolia",
-    chainId: 11155111,
-    rpc: "https://sepolia.drpc.org",
-    domain: 0,
-    usdc: "0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238",
-    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
-    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://sepolia.etherscan.io",
-  },
-  base: {
-    name: "Base Sepolia",
-    chainId: 84532,
-    rpc: "https://sepolia.base.org",
-    domain: 6,
-    usdc: "0x3600000000000000000000000000000000000000",
-    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
-    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://sepolia.basescan.org",
-  },
-  arc: {
-    name: "Arc Testnet",
-    chainId: 5042002,
-    rpc: "https://rpc.testnet.arc.network",
-    domain: 26,
-    usdc: "0x3600000000000000000000000000000000000000",
-    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
-    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    explorer: "https://testnet.arcscan.app",
-  },
-} as const;
-
-type ChainKey = keyof typeof CHAINS;
+import { CHAINS, type ChainKey } from '@/lib/config';
 
 // ABIs
 const ERC20_ABI = [
@@ -81,11 +46,12 @@ export default function CrossChainPage() {
 
   const [signer, setSigner] = useState<ethers.Signer | null>(null);
   const [sourceChain, setSourceChain] = useState<ChainKey>("sepolia");
-  const [destChain, setDestChain] = useState<ChainKey>("base");
+  const [destChain, setDestChain] = useState<ChainKey>("baseSepolia");
   const [recipientInput, setRecipientInput] = useState<string>("");
   const [recipientAddress, setRecipientAddress] = useState<string>("");
   const [amount, setAmount] = useState<string>("1.0");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [steps, setSteps] = useState<Step[]>([]);
   const [finalResult, setFinalResult] = useState<{
@@ -100,7 +66,14 @@ export default function CrossChainPage() {
     setRecipientAddress(address || '');
     // Auto-set destination chain if ENS has a preference
     if (preferredChain && address) {
-      const validChains: ChainKey[] = ['sepolia', 'base', 'arc'];
+      const validChains: ChainKey[] = [
+        'sepolia',
+        'arbitrumSepolia',
+        'optimismSepolia',
+        'baseSepolia',
+        'polygonAmoy',
+        'arcTestnet',
+      ];
       if (validChains.includes(preferredChain as ChainKey)) {
         setDestChain(preferredChain as ChainKey);
       }
@@ -232,21 +205,22 @@ export default function CrossChainPage() {
   // Main payment execution
   const executePayment = async () => {
     if (!signer || !isConnected || !userAddress) {
-      alert("Please connect your wallet first!");
+      setError("Please connect your wallet first!");
       return;
     }
 
     if (!ethers.isAddress(recipientAddress)) {
-      alert("Invalid recipient address!");
+      setError("Invalid recipient address!");
       return;
     }
 
     if (parseFloat(amount) <= 0) {
-      alert("Invalid amount!");
+      setError("Invalid amount!");
       return;
     }
 
     setIsProcessing(true);
+    setError(null);
     setLogs([]);
     setSteps([]);
     setFinalResult(null);
@@ -526,6 +500,21 @@ export default function CrossChainPage() {
         <p className="text-gray-600">Send USDC across chains with Circle&apos;s CCTP</p>
       </div>
 
+      {/* Error Message */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <p className="text-red-700 text-sm">{error}</p>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-600 text-xs underline"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Section */}
       {!isConnected && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
@@ -596,7 +585,7 @@ export default function CrossChainPage() {
               className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-indigo-500 focus:outline-none transition-colors bg-white"
             >
               {(Object.keys(CHAINS) as ChainKey[]).map((key) => (
-                <option key={key} value={key} disabled={key === sourceChain}>
+                <option key={key} value={key}>
                   {CHAINS[key].name} {key === sourceChain ? '(Source)' : ''}
                 </option>
               ))}

@@ -15,12 +15,11 @@ interface ChainConfig {
 
 interface ChainConfigs {
   sepolia: ChainConfig;
-  base: ChainConfig;
-  arc: ChainConfig;
-  ethereum: ChainConfig;
-  arbitrum: ChainConfig;
-  optimism: ChainConfig;
-  polygon: ChainConfig;
+  arbitrumSepolia: ChainConfig;
+  optimismSepolia: ChainConfig;
+  baseSepolia: ChainConfig;
+  polygonAmoy: ChainConfig;
+  arcTestnet: ChainConfig;
 }
 
 const CHAINS: ChainConfigs = {
@@ -33,7 +32,25 @@ const CHAINS: ChainConfigs = {
     domain: 0,
     explorer: "https://sepolia.etherscan.io",
   },
-  base: {
+  arbitrumSepolia: {
+    name: "Arbitrum Sepolia",
+    rpc: "https://sepolia-rollup.arbitrum.io/rpc",
+    usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
+    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
+    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
+    domain: 1,
+    explorer: "https://sepolia.arbiscan.io",
+  },
+  optimismSepolia: {
+    name: "Optimism Sepolia",
+    rpc: "https://sepolia.optimism.io",
+    usdc: "0x5fd84259d66Cd46123540766Be93DFE6D43130D7",
+    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
+    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
+    domain: 2,
+    explorer: "https://sepolia-optimism.etherscan.io",
+  },
+  baseSepolia: {
     name: "Base Sepolia",
     rpc: "https://sepolia.base.org",
     usdc: "0x3600000000000000000000000000000000000000",
@@ -42,50 +59,23 @@ const CHAINS: ChainConfigs = {
     domain: 6,
     explorer: "https://sepolia.basescan.org",
   },
-arc: {
-  name: "Arc Testnet",
-  rpc: "https://rpc.testnet.arc.network",
-  usdc: "0x3600000000000000000000000000000000000000",
-  tokenMessenger: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
-  messageTransmitter: "0xE737E5cEBeEBa77eFE34D4AA090756590b1CE275",
-  domain: 26,
-  explorer: "https://testnet.arcscan.app",
-},
-  ethereum: {
-    name: "Ethereum Mainnet",
-    rpc: "https://eth.drpc.org",
-    usdc: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-    tokenMessenger: "0xbd3fa81b58ba92a82136038b25adec7066af3155",
-    messageTransmitter: "0x0a992d191deec32afe36203ad87d7d289a738f81",
-    domain: 0,
-    explorer: "https://etherscan.io",
-  },
-  arbitrum: {
-    name: "Arbitrum",
-    rpc: "https://arb1.arbitrum.io/rpc",
-    usdc: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
-    tokenMessenger: "0x19330d10D9Cc8751218eaf51E8885D058642E08A",
-    messageTransmitter: "0xC30362313FBBA5cf9163F0bb16a0e01f01A896ca",
+  polygonAmoy: {
+    name: "Polygon Amoy",
+    rpc: "https://rpc-amoy.polygon.technology",
+    usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
+    tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
+    messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
     domain: 3,
-    explorer: "https://arbiscan.io",
+    explorer: "https://amoy.polygonscan.com",
   },
-  optimism: {
-    name: "Optimism",
-    rpc: "https://mainnet.optimism.io",
-    usdc: "0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85",
-    tokenMessenger: "0x2B4069517957735bE00ceE0fadAE88a26365528f",
-    messageTransmitter: "0x4d41f22c5a0e5c74090899e5a8fb597a8842b3e8",
-    domain: 2,
-    explorer: "https://optimistic.etherscan.io",
-  },
-  polygon: {
-    name: "Polygon",
-    rpc: "https://polygon-rpc.com",
-    usdc: "0x3c499c542cEF5E3811e1192ce70d8cC03d5c3359",
-    tokenMessenger: "0x9daF8c91AEFAE50b9c0E69629D3F6Ca40cA3B3FE",
-    messageTransmitter: "0xF3be9355363857F3e001be68856A2f96b4C39Ba9",
-    domain: 7,
-    explorer: "https://polygonscan.com",
+  arcTestnet: {
+    name: "Arc Testnet",
+    rpc: "https://rpc.testnet.arc.network",
+    usdc: "0x3600000000000000000000000000000000000000",
+    tokenMessenger: "0x8FE6B999Dc680CcFDD5Bf7EB0974218be2542DAA",
+    messageTransmitter: "0xE737E5cEBeEBa77eFE34D4AA090756590b1CE275",
+    domain: 26,
+    explorer: "https://testnet.arcscan.app",
   },
 };
 
@@ -208,10 +198,10 @@ async function executeAutoPayment(payment: any) {
       throw new Error('Relayer private key not configured');
     }
 
-    const isSameChain = payment.destinationChain === 'arc';
+    const isSameChain = payment.destinationChain === 'arcTestnet';
 
     // Source chain is always Arc (where user's contract wallet is)
-    const sourceChain = CHAINS.arc;
+    const sourceChain = CHAINS.arcTestnet;
     const destChain = CHAINS[payment.destinationChain as keyof typeof CHAINS];
 
     if (!destChain) {

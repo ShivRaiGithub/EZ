@@ -70,16 +70,16 @@ export function useAddressResolution(input: string, userAddress?: string) {
                             try {
                                 const resolver = await provider.getResolver(trimmedInput);
                                 if (resolver) {
-                                    const chainText = await resolver.getText('chain');
+                                    const chainText = await resolver.getText('preferred_chain');
                                     if (chainText) {
                                         const chainMap: Record<string, string> = {
                                             'sepolia': 'sepolia',
-                                            'ethereum': 'sepolia',
-                                            'base': 'base',
-                                            'arc': 'arc',
-                                            'optimism': 'optimism-sepolia',
-                                            'arbitrum': 'arbitrum-sepolia',
-                                            'polygon': 'polygon-amoy',
+                                            'ethereumsepolia': 'sepolia',
+                                            'basesepolia': 'base sepolia',
+                                            'arctestnet': 'arctestnet',
+                                            'optimismsepolia': 'optimism sepolia',
+                                            'arbitrumsepolia': 'arbitrum sepolia',
+                                            'polygonamoy': 'polygon amoy',
                                         };
                                         preferredChain = chainMap[chainText.toLowerCase()] || 'sepolia';
                                     }
