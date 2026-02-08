@@ -38,7 +38,7 @@ const CHAINS: ChainConfigs = {
     usdc: "0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d",
     tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    domain: 1,
+    domain: 3,
     explorer: "https://sepolia.arbiscan.io",
   },
   optimismSepolia: {
@@ -53,7 +53,7 @@ const CHAINS: ChainConfigs = {
   baseSepolia: {
     name: "Base Sepolia",
     rpc: "https://sepolia.base.org",
-    usdc: "0x3600000000000000000000000000000000000000",
+    usdc: "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
     tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
     domain: 6,
@@ -65,7 +65,7 @@ const CHAINS: ChainConfigs = {
     usdc: "0x41E94Eb019C0762f9Bfcf9Fb1E58725BfB0e7582",
     tokenMessenger: "0x8fe6b999dc680ccfdd5bf7eb0974218be2542daa",
     messageTransmitter: "0xe737e5cebeeba77efe34d4aa090756590b1ce275",
-    domain: 3,
+    domain: 7,
     explorer: "https://amoy.polygonscan.com",
   },
   arcTestnet: {
