@@ -197,6 +197,8 @@ export default function RequestsPage() {
     try {
       if (!walletClient) throw new Error("Wallet not connected");
 
+      await switchToArcTestnet();
+
       const web3Provider = new BrowserProvider(walletClient as any);
       const signer = await web3Provider.getSigner();
 
