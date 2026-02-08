@@ -5,6 +5,7 @@ A comprehensive multi-chain crypto payments platform built on Arc (Circle's Laye
 ## NOTE
 1. Only testnet supported right now
 2. For getting preferred chain in ENS, users have to put "preferred_chain" as the key and a value for that in their ENS. Else, it falls back to Sepolia.
+3. The relayer has to be funded with the native token on the supported chains in order to work.
 
 ## ✨ Features
 
