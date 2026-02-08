@@ -680,7 +680,7 @@ export default function AutoPayPage() {
 
                             <div className="mt-6 p-4 bg-blue-50 rounded-lg">
                                 <p className="text-sm text-blue-700">
-                                    💡 <strong>Tip:</strong> Make sure to fund your wallet with enough USDC to cover all your scheduled autopayments plus gas fees.
+                                    💡 <strong>Tip:</strong> Make sure to fund your wallet with enough USDC to cover all your scheduled autopayments.
                                 </p>
                             </div>
                         </div>
