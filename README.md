@@ -203,11 +203,9 @@ Open [http://localhost:3000](http://localhost:3000) to see the app.
 6. **History** - Both parties can view request in their transaction history
 
 ### ENS Integration Flow
-1. **User enters ENS name** - Type `vitalik.eth` instead of `0x...`
+1. **User enters ENS name** - Type `rising.eth` instead of `0x...`
 2. **Resolve address** - Frontend queries ENS resolver for primary address
-3. **Fetch preferences** - Read `payment.chain` and `payment.token` text records
-4. **Auto-fill destination** - Destination chain auto-selected based on preference
-5. **Display profile** - Show avatar, social links, and other ENS metadata
+3. **Fetch preferences** - Read `preferred_chain` to show the chain preferred for payments
 
 ## 📁 Project Structure
 
