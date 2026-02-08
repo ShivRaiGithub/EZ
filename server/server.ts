@@ -307,9 +307,6 @@ function calculateNextPayment(frequency: string, from: Date = new Date()): Date 
   const next = new Date(from);
 
   switch (frequency) {
-    case 'minute':
-      next.setMinutes(next.getMinutes() + 1);
-      break;
     case 'daily':
       next.setDate(next.getDate() + 1);
       break;
@@ -974,10 +971,6 @@ const startServer = async () => {
       console.log('='.repeat(50));
       console.log(`Server running on port ${PORT}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
-      console.log(`Relay endpoint: http://localhost:${PORT}/api/relay`);
-      console.log(`Autopayments endpoint: http://localhost:${PORT}/api/autopayments`);
-      console.log(`Relayer configured: ${!!process.env.RELAYER_PRIVATE_KEY}`);
-      console.log(`MongoDB configured: ${!!process.env.MONGO_URI}`);
       console.log('='.repeat(50));
     });
   } catch (error) {

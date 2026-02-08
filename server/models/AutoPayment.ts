@@ -5,7 +5,7 @@ export interface IAutoPayment extends Document {
   walletAddress: string; // User's AutoPayWallet contract address
   recipient: string;
   amount: string;
-  frequency: 'minute' | 'daily' | 'weekly' | 'monthly' | 'yearly';
+  frequency: 'daily' | 'weekly' | 'monthly' | 'yearly';
   destinationChain: string;
   status: 'active' | 'paused';
   nextPayment: Date;
@@ -35,7 +35,7 @@ const AutoPaymentSchema = new Schema<IAutoPayment>({
   },
   frequency: {
     type: String,
-    enum: ['minute', 'daily', 'weekly', 'monthly', 'yearly'],
+    enum: ['daily', 'weekly', 'monthly', 'yearly'],
     required: true,
   },
   destinationChain: {

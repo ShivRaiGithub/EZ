@@ -116,9 +116,6 @@ function calculateNextPayment(frequency: string, from: Date = new Date()): Date 
   const next = new Date(from);
   
   switch (frequency) {
-    case 'minute':  // ADD THIS
-      next.setMinutes(next.getMinutes() + 1);
-      break;
     case 'daily':
       next.setDate(next.getDate() + 1);
       break;
@@ -386,13 +383,11 @@ async function checkAndExecutePayments() {
 
 // Start the scheduler
 export function startScheduler() {
-  cron.schedule('* * * * *', () => {
-    console.log('[AutoPay] Checking for due payments...');
-    checkAndExecutePayments();
-  });
+cron.schedule('0 */12 * * *', () => {
+  console.log('[AutoPay] Checking for due payments...');
+  checkAndExecutePayments();
+});
 
-  // Also run on startup
-  console.log('✓ AutoPayment scheduler started (runs every hour)');
-  console.log('[AutoPay] Running initial check...');
+  console.log('✓ AutoPayment scheduler started (runs every 12 hours)');
   checkAndExecutePayments();
 }

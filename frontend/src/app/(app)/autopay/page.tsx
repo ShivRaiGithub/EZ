@@ -361,7 +361,6 @@ export default function AutoPayPage() {
         .map(([key, value]) => ({ id: key, name: value.name }));
 
     const frequencies = [
-        { id: 'minute', name: 'Minute (Testing)' },
         { id: 'daily', name: 'Daily' },
         { id: 'weekly', name: 'Weekly' },
         { id: 'monthly', name: 'Monthly' },
