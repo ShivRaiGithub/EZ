@@ -6,14 +6,11 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import { Logo } from '@/components/Logo';
 import {
-  Zap,
   ArrowRight,
   Globe2,
   Sparkles,
   Send,
   Search,
-  Shield,
-  Clock,
   DollarSign,
   CircleDollarSign,
   Lock,
@@ -53,18 +50,18 @@ export default function Home() {
           <div className="text-center max-w-4xl mx-auto">
             <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200 mb-8">
               <Sparkles className="w-4 h-4 text-indigo-500" />
-              <span className="text-sm text-indigo-600 font-medium">Arc Ecosystem · Circle CCTP · ENS</span>
+              <span className="text-sm text-indigo-600 font-medium">Built on Arc · Powered by Circle CCTP</span>
             </div>
 
             <h2 className="text-4xl md:text-6xl lg:text-7xl font-bold mb-6 text-gray-900">
               The Complete
               <br />
-              <span className="logo-gradient">Crypto Payments Suite</span>
+              <span className="logo-gradient">Cross-Chain Payment Suite</span>
             </h2>
 
             <p className="text-lg md:text-xl text-gray-600 max-w-2xl mx-auto mb-10">
-              Cross-chain transfers, recurring payments, payment requests, and contacts
-              all integrated with Arc&apos;s USDC-native infrastructure.
+              Cross-chain transfers with Circle CCTP, automated recurring payments, split bills, 
+              payment requests, and contacts — all powered by Arc&apos;s USDC-native Layer-1 blockchain.
             </p>
 
             <div className="flex flex-wrap items-center justify-center gap-4">
@@ -89,11 +86,11 @@ export default function Home() {
               Everything you need for crypto payments
             </h3>
             <p className="text-gray-600 mt-4 max-w-2xl mx-auto">
-              A complete suite of payment tools built for the multi-chain future
+              7 powerful features for seamless cross-chain USDC payments on Arc and beyond
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 mb-6">
             {/* Cross-Chain */}
             <Link href="/cross-chain" className="feature-card group cursor-pointer hover:border-indigo-300 transition-all">
               <div className="w-14 h-14 rounded-2xl bg-indigo-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -106,6 +103,22 @@ export default function Home() {
                 Send USDC across Ethereum, Base, Arbitrum, Optimism, and Polygon via Circle CCTP.
               </p>
               <div className="mt-4 text-indigo-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Try it <ArrowRight className="w-4 h-4" />
+              </div>
+            </Link>
+
+            {/* Split Payments */}
+            <Link href="/split-pay" className="feature-card group cursor-pointer hover:border-pink-300 transition-all">
+              <div className="w-14 h-14 rounded-2xl bg-pink-100 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                <DollarSign className="w-7 h-7 text-pink-600" />
+              </div>
+              <h4 className="text-xl font-semibold text-gray-900 mb-3">
+                Split Payments
+              </h4>
+              <p className="text-gray-600">
+                Split bills equally among friends. Automatic payment requests for each person.
+              </p>
+              <div className="mt-4 text-pink-600 font-medium flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 Try it <ArrowRight className="w-4 h-4" />
               </div>
             </Link>
@@ -141,6 +154,9 @@ export default function Home() {
                 Try it <ArrowRight className="w-4 h-4" />
               </div>
             </Link>
+
+            </div>
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-4xl mx-auto">
 
             {/* Contacts */}
             <Link href="/contacts" className="feature-card group cursor-pointer hover:border-blue-300 transition-all">
@@ -210,22 +226,22 @@ export default function Home() {
               <div className="w-14 h-14 mx-auto rounded-xl bg-green-100 flex items-center justify-center mb-4">
                 <CircleDollarSign className="w-7 h-7 text-green-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">USDC Fees</p>
-              <p className="text-gray-600 mt-2">Pay fees in stablecoins, not volatile tokens</p>
+              <p className="text-2xl font-bold text-gray-900">Low Fees</p>
+              <p className="text-gray-600 mt-2">0.05% fees on cross-chain transactions and 0 on same chain</p>
             </div>
             <div className="stats-card">
               <div className="w-14 h-14 mx-auto rounded-xl bg-blue-100 flex items-center justify-center mb-4">
                 <Timer className="w-7 h-7 text-blue-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">Sub-Second</p>
-              <p className="text-gray-600 mt-2">Deterministic finality for instant settlement</p>
+              <p className="text-2xl font-bold text-gray-900">Simple and Fast Transactions</p>
+              <p className="text-gray-600 mt-2">Complete payments within seconds</p>
             </div>
             <div className="stats-card">
               <div className="w-14 h-14 mx-auto rounded-xl bg-purple-100 flex items-center justify-center mb-4">
                 <Lock className="w-7 h-7 text-purple-600" />
               </div>
-              <p className="text-2xl font-bold text-gray-900">Enterprise Ready</p>
-              <p className="text-gray-600 mt-2">Built for compliance and reliability</p>
+              <p className="text-2xl font-bold text-gray-900">Gasless and Automatic Receiving</p>
+              <p className="text-gray-600 mt-2">No gas fees or actions to receive payments</p>
             </div>
           </div>
         </div>
@@ -234,9 +250,12 @@ export default function Home() {
       {/* Supported Chains */}
       <section className="py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto text-center">
-          <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-12">
+          <h3 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
             Connect across the ecosystem
           </h3>
+          <p className="text-gray-600 mb-12 max-w-2xl mx-auto">
+            Send USDC seamlessly across all major chains
+          </p>
 
           <div className="flex flex-wrap justify-center items-center gap-8 md:gap-12">
             {[
@@ -245,6 +264,7 @@ export default function Home() {
               { name: 'Optimism', color: '#FF0420' },
               { name: 'Base', color: '#0052FF' },
               { name: 'Polygon', color: '#8247E5' },
+              { name: 'Arc', color: '#2A2158' },
             ].map((chain) => {
               const LogoComponent = CHAIN_LOGOS[chain.name];
               return (
@@ -261,9 +281,11 @@ export default function Home() {
             })}
           </div>
 
-          <p className="mt-8 text-gray-500 text-sm">
-            Connected via Circle CCTP for seamless cross-chain transfers
-          </p>
+          <div className="mt-8 max-w-3xl mx-auto">
+            <p className="text-gray-500 text-sm mb-3">
+              Powered by Circle CCTP for secure burn-and-mint cross-chain transfers
+            </p>
+          </div>
         </div>
       </section>
 
@@ -306,40 +328,11 @@ export default function Home() {
                 <span className="text-2xl font-bold text-indigo-600">3</span>
               </div>
               <h4 className="text-xl font-semibold text-gray-900 mb-3">
-                Instant Settlement
+                Fast Settlement
               </h4>
               <p className="text-gray-600">
-                Payments settle with sub-second finality on Arc&apos;s enterprise infrastructure.
+                Settle payments within seconds with Circle CCTP and Arc&apos;s L1 blockchain.
               </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Additional Features */}
-      <section className="py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="feature-card text-center">
-              <div className="w-14 h-14 mx-auto rounded-xl bg-green-100 flex items-center justify-center mb-4">
-                <Shield className="w-7 h-7 text-green-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Non-custodial</h4>
-              <p className="text-sm text-gray-600">You always control your funds</p>
-            </div>
-            <div className="feature-card text-center">
-              <div className="w-14 h-14 mx-auto rounded-xl bg-blue-100 flex items-center justify-center mb-4">
-                <Clock className="w-7 h-7 text-blue-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Instant Settlement</h4>
-              <p className="text-sm text-gray-600">Deterministic finality</p>
-            </div>
-            <div className="feature-card text-center">
-              <div className="w-14 h-14 mx-auto rounded-xl bg-amber-100 flex items-center justify-center mb-4">
-                <DollarSign className="w-7 h-7 text-amber-600" />
-              </div>
-              <h4 className="font-semibold text-gray-900 mb-2">Low Fees</h4>
-              <p className="text-sm text-gray-600">Predictable stablecoin fees</p>
             </div>
           </div>
         </div>
@@ -368,7 +361,7 @@ export default function Home() {
             <Logo width={100} height={30} />
           </div>
           <p className="text-gray-600 mb-2">
-            Arc Ecosystem · Circle CCTP · ENS 🚀
+            Arc Ecosystem · Circle CCTP · ENS 
           </p>
           <p className="text-sm text-gray-500">
             The complete crypto payments suite

@@ -42,10 +42,17 @@ export function PolygonLogo({ className = "w-8 h-8" }: { className?: string }) {
     );
 }
 
+export function ArcLogo({ className = "w-8 h-8" }: { className?: string }) {
+    return (
+        <img src="/arc.png" alt="Arc" className={`${className} rounded-full object-cover`} />
+    );
+}
+
 export const CHAIN_LOGOS: Record<string, React.ComponentType<{ className?: string }>> = {
     'Ethereum': EthereumLogo,
     'Arbitrum': ArbitrumLogo,
     'Optimism': OptimismLogo,
     'Base': BaseLogo,
     'Polygon': PolygonLogo,
+    'Arc': ArcLogo,
 };
